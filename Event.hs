@@ -25,7 +25,7 @@ jsonEventField = "Event"
 data Event = AttackEvent (GOiD, GOiD)
            | CharacterMovedEvent GOiD [Float]
            | RequestCharacterCreationEvent String [Float]
-           | ApproveCharacterCreationRequestdEvent GOiD
+           | ApproveCharacterCreationRequestEvent GOiD
            | CharacterCreatedEvent GOiD
              deriving (Show)
 
@@ -65,11 +65,15 @@ attackEvent (EventDescriptor typ event)
             (Ok (JSObject obj)) -> let (Ok char1) = obj ! "Char1"
                                        (Ok char2) = obj ! "Char2" 
                                    in AttackEvent (char1,char2)
-    | typ == "characterMoved" = do
+    | typ == "characterMoved" =
         case readJSON event of
             (Ok (JSObject obj)) -> let (Ok goid) = obj ! "CharID"
                                        (Ok loc)  = obj ! "NewLocation"
                                    in CharacterMovedEvent goid loc
+    | typ == "approveCharacterCreationRequest" = do
+        case readJSON event of
+            (Ok (JSObject obj)) -> let (Ok goid) = obj ! "ID"
+                               in ApproveCharacterCreationRequestEvent goid
 
 getEvent :: Socket -> IO ()
 getEvent sock = do
