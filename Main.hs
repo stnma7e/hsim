@@ -12,6 +12,11 @@ import Control.Monad.Trans.State
 import Instance
 import Event
 
+import Event.Attack
+import Event.CharacterMoved
+import Event.RequestCharacterCreation
+import Event.ApproveCharacterCreationRequest
+
 main :: IO ()
 main = do
 
@@ -20,7 +25,7 @@ main = do
 
     let n = 1
     let is' = execState start (Instance [])
-    putStrLn . show . runState (loop n) $ is'
+    print . runState (loop n) $ is'
 
 -- Get our server network information, and then create a socket to get events from the server.
 -- The port here isn't specified because it doesn't matter.
@@ -31,8 +36,13 @@ main = do
     sock <- socket (addrFamily serverAddr) (addrSocketType serverAddr) (addrProtocol serverAddr)
     connect sock (addrAddress serverAddr)
 
-    getEvent sock
-    let evt = RequestCharacterCreationEvent "player" [1,1,1]
-    sendEvent sock evt
-    getEvent sock
-    return ()
+    sendEvent sock $ RequestCharacterCreationEvent "player" [1,1,1]
+    evt <- recvEvent sock
+    dispatch evt
+
+dispatch :: EventDescriptor -> IO ()
+dispatch evt@(EventDescriptor typ evtData)
+    | typ == "attack"                          = print (getEvent evt :: AttackEvent)
+    | typ == "characterMoved"                  = print (getEvent evt :: CharacterMovedEvent)
+    | typ == "approveCharacterCreationRequest" = print (getEvent evt :: ApproveCharacterCreationRequestEvent)
+    | otherwise                                = print evt

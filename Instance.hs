@@ -39,7 +39,7 @@ loop n = do
 	
 
 addManager :: ComponentManager -> State Instance ()
-addManager m = state $ \s -> ((),Instance ((Right m):(getManagers s)))
+addManager m = state $ \s -> ((),Instance (Right m : getManagers s))
 
 data Component = CharComponent [Int]
                  deriving (Show)
@@ -53,7 +53,7 @@ class ComponentCreator a where
 	
 instance ComponentCreator ComponentManager where
 	createComponent id m@(Left err) = error err
-	createComponent id m@(Right (CharManager ids)) = Right (CharManager (Map.insert id (CharComponent [1,12,4,43,34,3],(\gid m1 m2 -> state $ \s -> ((), s))) ids))
+	createComponent id m@(Right (CharManager ids)) = Right . CharManager $ Map.insert id (CharComponent [1,12,4,43,34,3], \gid m1 m2 -> state $ \s -> ((), s)) ids
 	createComponent id (Right (TransformManager mats)) = Right (TransformManager (Map.insert id (Mat.matrix (4,4) (\(_,_) -> 0)) mats))
 	
 	update (Left err) = error err
