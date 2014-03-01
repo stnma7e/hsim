@@ -26,6 +26,7 @@ data EventDescriptor = EventDescriptor
     , eventData :: JSValue
     } deriving (Show)
 
+-- borrowed from http://stackoverflow.com/a/17844540/2977341 
 (!) :: JSON a => JSObject JSValue -> String -> Result a
 (!) = flip valFromObj
 
@@ -40,13 +41,13 @@ instance JSON EventDescriptor where
         (Error err) -> error err
     readJSON _ = mzero
 
-recvEvent :: Socket -> IO EventDescriptor
+recvEvent :: Socket -> IO (Either String EventDescriptor)
 recvEvent sock = do
     msg <- recv sock 1024
     putStrLn $ "received: " ++ C.unpack msg
     case decode (C.unpack msg) :: Result EventDescriptor of
-        (Error err) -> error $ "ERROR: " ++ err
-        (Ok evt)    -> return evt
+        (Ok evt)    -> return $ Right evt
+        (Error err) -> return $ Left ("ERROR: " ++ err)
 
 sendEvent :: (Event a) => Socket -> a -> IO ()
 sendEvent sock evt = do

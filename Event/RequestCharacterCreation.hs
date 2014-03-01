@@ -6,11 +6,12 @@ import Event
 import Text.JSON
 
 data RequestCharacterCreationEvent = RequestCharacterCreationEvent String [Float]
-    deriving Show
+                                     deriving Show
 
 instance JSON RequestCharacterCreationEvent where
     readJSON = undefined
-    showJSON (RequestCharacterCreationEvent charType loc) = buildEventJSON "requestCharacterCreation" [("Type", showJSON charType), ("Location", showJSON loc)]
+    showJSON (RequestCharacterCreationEvent charType loc) =
+        buildEventJSON "requestCharacterCreation" [("Type", showJSON charType), ("Location", showJSON loc)]
 
 instance Event RequestCharacterCreationEvent where
     getEvent (EventDescriptor "requestCharacterCreation" event) =

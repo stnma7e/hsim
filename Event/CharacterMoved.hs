@@ -7,11 +7,12 @@ import Event
 import Text.JSON
 
 data CharacterMovedEvent = CharacterMovedEvent GOiD [Float]
-    deriving Show
+                           deriving Show
 
 instance JSON CharacterMovedEvent where
     readJSON = undefined
-    showJSON (CharacterMovedEvent char loc) = buildEventJSON "characterMoved" [("CharID", showJSON char), ("NewLocation", showJSON loc)]
+    showJSON (CharacterMovedEvent char loc) =
+        buildEventJSON "characterMoved" [("CharID", showJSON char), ("NewLocation", showJSON loc)]
 
 instance Event CharacterMovedEvent where
     getEvent (EventDescriptor "characterMoved" event) = 

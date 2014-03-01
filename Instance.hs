@@ -1,6 +1,7 @@
 module Instance
 ( GOiD
 , Instance(..)
+, InstanceState(..)
 , ComponentManager
 , ComponentCreator
 , start
@@ -16,30 +17,33 @@ import qualified Numeric.Matrix as Mat
 type GOiD = Int
 type AiFunction = GOiD -> ComponentManager -> ComponentManager -> State ComponentManager ()
 
-newtype Instance = Instance
+type Instance         = State InstanceState
+newtype InstanceState = InstanceState
     { getManagers :: [Either String ComponentManager]
     } deriving (Show)
 
-createObject :: GOiD -> State Instance ()
-createObject idToMake = state $ \s -> ((),Instance $ map (createComponent idToMake) $ getManagers s)
-
-start :: State Instance ()
+start :: Instance ()
 start = do
-	addManager (TransformManager Map.empty)
-	addManager (CharManager Map.empty)
-    {-createObject n-}
+    addManager (TransformManager Map.empty)
+    addManager (CharManager Map.empty)
+    createObject 0
 	
-loop :: GOiD -> State Instance ()
+loop :: GOiD -> Instance ()
 loop 0 = state $ \s -> ((),s)
 loop n = do
-    createObject n
     s <- get
-    put . Instance . map update . getManagers $ s
+    put . InstanceState . map update $ getManagers s
     loop (n-1)
-	
 
-addManager :: ComponentManager -> State Instance ()
-addManager m = state $ \s -> ((),Instance (Right m : getManagers s))
+createObject :: GOiD -> Instance ()
+createObject idToMake = state $ \s -> ((), InstanceState $
+    map (createComponent idToMake) $ getManagers s
+    )
+
+addManager :: ComponentManager -> Instance ()
+addManager m = state $ \s -> ((), InstanceState $
+    Right m : getManagers s
+    )
 
 data Component = CharComponent [Int]
                  deriving (Show)
