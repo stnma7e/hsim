@@ -55,22 +55,25 @@ main = do
         start
         update
 
-    processConsole is
+    loop sock is
 
-processConsole :: InstanceState -> IO ()
-processConsole is = do
+loop :: Socket -> InstanceState -> IO ()
+loop sock is = do
     com <- getLine
-    let (ret, is') = runState (parseInput com) is
+    let (ret, is'@(InstanceState pl (TransformManager mats) _)) = runState (parseInput com) is
     case ret of 
         (Right "quit") -> return ()
         otherwise -> do
             case ret of
-                (Left err)     -> print err
-                (Right "show") -> print is'
-                otherwise      -> return ()
+                (Left err)      -> print err
+                (Right "show")  -> print is'
+                (Right "north") -> let (Just mat) = Map.lookup pl mats
+                                   in sendEvent sock $ CharacterMovedEvent pl
+                                       [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
+                otherwise       -> return ()
 
             let newIs = execState update is'
-            processConsole newIs
+            loop sock newIs
 
 parseInput :: String -> Instance (Either String String)
 parseInput com = do
@@ -79,7 +82,7 @@ parseInput com = do
     then state $ \s -> (Left "no text printed", s)
     else state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids)) -> case head args of
         "create"  -> if length args < 2
-                     then (Left "not enough arguments to `create` command", s)
+                     then (Left "not enough arguments for `create` command", s)
                      else let n = read $ args !! 1
                               is = execState (createObject n) s
                           in (Right com, is)
