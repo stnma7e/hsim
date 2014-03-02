@@ -1,4 +1,11 @@
 module Event
+( EventDescriptor(..)
+, Event(..)
+, buildEventJSON
+, (!)
+, recvEvent
+, sendEvent
+)
 where
 
 import Control.Monad

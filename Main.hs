@@ -9,14 +9,26 @@ import Data.ByteString.Char8 as B (unpack)
 import Control.Monad
 import Data.Maybe
 import Control.Monad.Trans.State
+import qualified Numeric.Matrix as Mat
+import qualified Data.Map as Map
 
 import Instance
 import Event
+import Math
+import Component.Manager.Transform
+import Component.Manager.Character
 
 import Event.Attack
 import Event.CharacterMoved
 import Event.RequestCharacterCreation
 import Event.ApproveCharacterCreationRequest
+
+commands :: [String]
+commands = ["create"
+           , "quit"
+           , "show"
+           , "north"
+           ]
 
 main :: IO ()
 main = do
@@ -65,15 +77,18 @@ parseInput com = do
     let args = words com
     if length args == 0
     then state $ \s -> (Left "no text printed", s)
-    else state $ \s -> case head args of
+    else state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids)) -> case head args of
         "create"  -> if length args < 2
                      then (Left "not enough arguments to `create` command", s)
                      else let n = read $ args !! 1
                               is = execState (createObject n) s
                           in (Right com, is)
-        "quit"    -> (Right com, s)
-        "show"    -> (Right com, s)
-        otherwise -> (Left "not a command", s)
+        "north"   -> let (Just mat) = Map.lookup pl mats
+                         is = execState (moveObject pl (mat `Mat.times` (buildTranslationMatrix (4,4) [0,0,1]))) s
+                     in (Right com, is)
+        otherwise -> if (head args) `elem` commands
+                     then (Right com, s)
+                     else (Left "not a command", s)
 
 dispatch :: EventDescriptor -> IO ()
 dispatch evt@(EventDescriptor typ evtData)

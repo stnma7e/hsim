@@ -4,7 +4,10 @@ module Instance
 , emptyInstanceState
 , start
 , Instance.update
-, createObject) where 
+, createObject
+, moveObject
+) where 
+
 
 import Control.Monad.Trans.State
 import qualified Data.Map as Map
@@ -16,15 +19,19 @@ import Component.Manager.Character
 
 type Instance         = State InstanceState
 data InstanceState = InstanceState
-    { getTransformManager :: TransformManager
+    { getPlayer           :: GOiD
+    , getTransformManager :: TransformManager
     , getCharacterManager :: CharacterManager
     } deriving (Show)
 
 emptyInstanceState :: InstanceState
-emptyInstanceState = InstanceState (TransformManager Map.empty) (CharacterManager Map.empty)
+emptyInstanceState = InstanceState (-1) (TransformManager Map.empty) (CharacterManager Map.empty)
 
 start :: Instance ()
-start = createObject 0
+start = do
+    createObject 0
+    (InstanceState _ tm cm) <- get
+    put $ InstanceState 0 tm cm
 
 update :: Instance ()
 update = do
@@ -32,32 +39,32 @@ update = do
     updateCharacterManager
 
 updateTransformManager :: Instance ()
-updateTransformManager = state $ \(InstanceState tm cm) ->
+updateTransformManager = state $ \(InstanceState pl tm cm) ->
     let itm = case Component.update tm of
                   (Right tm') -> tm'
                   (Left err)  -> error err
-    in ((), InstanceState itm cm)
+    in ((), InstanceState pl itm cm)
 updateCharacterManager :: Instance ()
-updateCharacterManager = state $ \(InstanceState tm cm) ->
+updateCharacterManager = state $ \(InstanceState pl tm cm) ->
     let icm = case Component.update cm of
                   (Right cm') -> cm'
                   (Left err)  -> error err
-    in ((), InstanceState tm icm)
+    in ((), InstanceState pl tm icm)
 
 addTransformManager :: TransformManager -> Instance ()
-addTransformManager tm = state $ \(InstanceState _ cm) -> ((), InstanceState tm cm)
+addTransformManager tm = state $ \(InstanceState pl _ cm) -> ((), InstanceState pl tm cm)
 addCharacterManager :: CharacterManager -> Instance ()
-addCharacterManager cm = state $ \(InstanceState tm _) -> ((), InstanceState tm cm)
+addCharacterManager cm = state $ \(InstanceState pl tm _) -> ((), InstanceState pl tm cm)
 
 createObject :: GOiD -> Instance ()
-createObject idToMake = state $ \(InstanceState tm cm) -> 
+createObject idToMake = state $ \(InstanceState pl tm cm) -> 
     let itm = case createComponent idToMake tm of
                   (Right tm') -> tm'
                   (Left err)  -> error err
         icm = case createComponent idToMake cm of
                   (Right cm') -> cm'
                   (Left err) -> error err
-    in ((), InstanceState itm icm)
+    in ((), InstanceState pl itm icm)
 
-moveCharacter :: GOiD -> Mat.Matrix Float ->  Instance ()
-moveCharacter id newLoc = state $ \s -> ((), emptyInstanceState)
+moveObject :: GOiD -> Mat.Matrix Float ->  Instance ()
+moveObject id newLoc = state $ \(InstanceState pl tm cm) -> ((), InstanceState pl (moveComponent tm id newLoc) cm)
