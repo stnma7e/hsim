@@ -6,6 +6,7 @@ module Instance
 , Instance.update
 , createObject
 , moveObject
+, attackObject
 ) where 
 
 
@@ -29,9 +30,10 @@ emptyInstanceState = InstanceState (-1) (TransformManager Map.empty) (CharacterM
 
 start :: Instance ()
 start = do
-    createObject 0
+    let goid = 3
+    createObject goid
     (InstanceState _ tm cm) <- get
-    put $ InstanceState 0 tm cm
+    put $ InstanceState goid tm cm
 
 update :: Instance ()
 update = do
@@ -68,3 +70,6 @@ createObject idToMake = state $ \(InstanceState pl tm cm) ->
 
 moveObject :: GOiD -> Mat.Matrix Float ->  Instance ()
 moveObject id newLoc = state $ \(InstanceState pl tm cm) -> ((), InstanceState pl (moveComponent tm id newLoc) cm)
+
+attackObject :: GOiD -> GOiD -> Instance ()
+attackObject id1 id2 = state $ \(InstanceState pl tm cm) -> ((), InstanceState pl tm (attackComponent cm id1 id2))

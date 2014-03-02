@@ -13,7 +13,7 @@ data TransformManager = TransformManager (Map.Map GOiD (Mat.Matrix Float))
 
 instance ComponentCreator TransformManager where
 	createComponent id (TransformManager mats) = Right . TransformManager $ Map.insert id (Mat.unit 4) mats
-	update m = Right m
+	update = Right
 
 moveComponent :: TransformManager -> GOiD -> Mat.Matrix Float -> TransformManager
 moveComponent (TransformManager mats) goid newLoc = TransformManager $ Map.update (\x -> Just newLoc) goid mats
