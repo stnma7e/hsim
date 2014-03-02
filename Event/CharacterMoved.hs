@@ -2,9 +2,10 @@ module Event.CharacterMoved
 ( CharacterMovedEvent(..)
 ) where
 
-import Instance
-import Event
 import Text.JSON
+
+import Component
+import Event
 
 data CharacterMovedEvent = CharacterMovedEvent GOiD [Float]
                            deriving Show

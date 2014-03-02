@@ -2,9 +2,10 @@ module Event.ApproveCharacterCreationRequest
 ( ApproveCharacterCreationRequestEvent(..)
 ) where
 
-import Instance
-import Event
 import Text.JSON
+
+import Component
+import Event
 
 data ApproveCharacterCreationRequestEvent = ApproveCharacterCreationRequestEvent GOiD
                                             deriving Show

@@ -39,10 +39,9 @@ main = do
 -- Create our instance via a state monad.
 -- Run the client loop for n loops.
 
-    let n = 1
-    let (ret, is) = (flip runState) (InstanceState []) $ do
+    let (ret, is) = (flip runState) emptyInstanceState $ do
         start
-        loop n
+        update
 
     processConsole is
 
@@ -58,7 +57,8 @@ processConsole is = do
                 (Right "show") -> print is'
                 otherwise      -> return ()
 
-            processConsole is'
+            let newIs = execState update is'
+            processConsole newIs
 
 parseInput :: String -> Instance (Either String String)
 parseInput com = do

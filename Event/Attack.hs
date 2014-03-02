@@ -2,9 +2,10 @@ module Event.Attack
 ( AttackEvent(..)
 ) where
 
-import Instance
-import Event
 import Text.JSON
+
+import Component
+import Event
 
 data AttackEvent = AttackEvent (GOiD, GOiD)
                    deriving Show
