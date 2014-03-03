@@ -27,13 +27,6 @@ import Event.ApproveCharacterCreationRequest
 main :: IO ()
 main = do
 
--- Create our instance via a state monad.
--- Run the client loop for n loops.
-
-    let (ret, is) = flip runState emptyInstanceState $ do
-        start
-        update
---
 -- Get our server network information, and then create a socket to get events from the server.
 -- The port here isn't specified because it doesn't matter.
 -- Then begin the main loop with getting events and reacting to them.
@@ -47,9 +40,17 @@ main = do
     evt <- recvEvent sock
     case evt of
         (Left err)   -> putStrLn err
-        (Right evt'@(EventDescriptor typ evtData)) -> do
-            dispatch evt'
-            loop sock $ execState (reactEvent evt') is
+        (Right evt'@(EventDescriptor typ evtData)) ->
+            if typ /= "approveCharacterCreationRequest"
+            then error $ "wrong event recieved: should be approveCharacterCreationRequest; was "++typ
+            else do
+                dispatch evt'
+                -- get player's goid from the server make an Instance with that
+                let (ApproveCharacterCreationRequestEvent id)  = getEvent evt' :: ApproveCharacterCreationRequestEvent
+                let (ret, is) = flip runState emptyInstanceState $ do
+                    start id
+                    update
+                loop sock $ execState (reactEvent evt') is
 
 loop :: Socket -> InstanceState -> IO ()
 loop sock is = do
@@ -71,13 +72,11 @@ loop sock is = do
 parseInput :: String -> Instance (Either String String)
 parseInput line = do
     let args = words line
-    if null args
-    then state $ \s -> (Left "no text printed", s)
-    else let com = head args
-         in state $ \s@(InstanceState pl
-                        tm@(TransformManager mats)
-                        cm@(CharacterManager ids)) ->
-        case com of
+    state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids)) ->
+        if null args
+        then (Left "no text printed", s)
+        else let com = head args
+            in case com of
             -- creates an object on the client
             -- takes 1 argument of ID to give object
             "create"  -> if length args < 2

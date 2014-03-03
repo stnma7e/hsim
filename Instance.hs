@@ -28,12 +28,11 @@ data InstanceState = InstanceState
 emptyInstanceState :: InstanceState
 emptyInstanceState = InstanceState (-1) (TransformManager Map.empty) (CharacterManager Map.empty)
 
-start :: Instance ()
-start = do
-    let goid = 3
-    createObject goid
+start :: GOiD -> Instance ()
+start playerId = do
+    createObject playerId
     (InstanceState _ tm cm) <- get
-    put $ InstanceState goid tm cm
+    put $ InstanceState playerId tm cm
 
 update :: Instance ()
 update = do
