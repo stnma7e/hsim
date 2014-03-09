@@ -11,11 +11,12 @@ import qualified Numeric.Matrix as Mat (at, times, fromList)
 import qualified Data.Map as Map       (lookup)
 
 import Instance
-import Game
 import Event
 import Math
 import Component.Manager.Transform
 import Component.Manager.Character
+import Script
+import Script.Scene1
 
 import Event.Attack
 import Event.CharacterMoved
@@ -43,28 +44,31 @@ main = do
             -- we're looking for an `approveCharacterCreationRequest' event from the server
             -- to get the player's GOiD
             if typ /= "approveCharacterCreationRequest"
-            then error $ "wrong event recieved: should be approveCharacterCreationRequest; was "++typ
+            then error $ "wrong event recieved: should be approveCharacterCreationRequest; was " ++ typ
             else do
-                putStrLn $ dispatch evt'
-
                 -- get player's goid from the server make an Instance with that
                 let (ApproveCharacterCreationRequestEvent id)  = getEvent evt' :: ApproveCharacterCreationRequestEvent
-                let is = flip execState emptyInstanceState $ do
+                let (eventType, is) = flip runState emptyInstanceState $ do
                     start id
                     update
+                    reactEvent evt'
+                putStrLn eventType
 
-                isn <- run (Scene1) is
-                let is' = execState isn is
-
-                loop sock $ execState (reactEvent evt') is'
+                loop sock is $ run Scene1
                 return ()
 
-loop :: Socket -> InstanceState -> IO (Instance ())
-loop sock is = do
+loop :: Socket -> InstanceState -> [IO (Instance ())] -> IO (Instance ())
+loop sock is [] = return . state $ \s -> ((), s)
+loop sock is (s:sx) = do
+    -- run one scene of our scene script
+    scene <- s
+    let scene' = execState scene is
+
+    -- then parse commands and junk like normal
     com <- getLine
-    let (ret, is'@(InstanceState pl (TransformManager mats) _ _)) = runState (parseInput com) is
+    let (ret, is'@(InstanceState pl (TransformManager mats) _ _)) = runState (parseInput com) scene'
     case ret of 
-        (Right "quit") -> return . state $ \s -> ((), is)
+        (Right "quit") -> return . state $ const ((), is)
         otherwise -> do
             case ret of
                 (Left err)      -> print err
@@ -74,7 +78,7 @@ loop sock is = do
                                        [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
                 otherwise       -> return ()
 
-            loop sock $ execState update is'
+            loop sock (execState update is') sx
 
 parseInput :: String -> Instance (Either String String)
 parseInput line = do
@@ -117,22 +121,15 @@ parseInput line = do
                              where commands :: [String]
                                    commands = ["quit", "show"]
 
-dispatch :: EventDescriptor -> String 
-dispatch evt@(EventDescriptor typ evtData)
-    | typ == "attack"                          = show (getEvent evt :: AttackEvent)
-    | typ == "characterMoved"                  = show (getEvent evt :: CharacterMovedEvent)
-    | typ == "approveCharacterCreationRequest" = show (getEvent evt :: ApproveCharacterCreationRequestEvent)
-    | otherwise                                = show evt
-
-reactEvent :: EventDescriptor -> Instance ()
+reactEvent :: EventDescriptor -> Instance String
 reactEvent evt@(EventDescriptor typ evtData) =
     state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids) _) ->
     case typ of
         "attack" ->
-            let (AttackEvent (id1,id2)) = getEvent evt
-            in ((), execState (attackObject id1 id2) s)
+            let ae@(AttackEvent (id1,id2)) = getEvent evt
+            in (show ae, execState (attackObject id1 id2) s)
         "characterMoved" ->
-            let (CharacterMovedEvent id loc) = getEvent evt
+            let ce@(CharacterMovedEvent id loc) = getEvent evt
                 mat = Map.lookup id mats
                 mat' = case mat of
                     (Just (objType, mat'')) -> mat''
@@ -142,8 +139,8 @@ reactEvent evt@(EventDescriptor typ evtData) =
                     Nothing -> let newId = execState (createObjectSpecificID id) s
                                    (Just (objType, mat'')) = Map.lookup id mats
                                in mat''
-            in ((), execState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s)
+            in (show ce, execState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s)
         "approveCharacterCreationRequest" ->
-            let (ApproveCharacterCreationRequestEvent id) = getEvent evt
-            in ((), execState (createObjectSpecificID id) s)
-        otherwise -> error $ "unsupported event type: "++typ ++ "\n\t data: " ++ show evtData
+            let accre@(ApproveCharacterCreationRequestEvent id) = getEvent evt
+            in (show accre, execState (createObjectSpecificID id) s)
+        otherwise -> error $ "unsupported event type: " ++ typ ++ "\n\t data: " ++ show evtData

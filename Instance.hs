@@ -49,7 +49,7 @@ createObject :: Instance GOiD
 createObject = state $ \s -> 
     let id = oc + 1
         (InstanceState pl tm cm oc) = execState (createObjectSpecificID id) s
-    in (id, (InstanceState pl tm cm id))
+    in (id, InstanceState pl tm cm id)
 
 createObjectSpecificID :: GOiD -> Instance ()
 createObjectSpecificID idToMake = state $ \(InstanceState pl tm cm oc) ->
