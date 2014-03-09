@@ -52,8 +52,10 @@ main = do
                 let is = flip execState emptyInstanceState $ do
                     start id
                     update
+
                 isn <- run (Scene1) is
                 let is' = execState isn is
+
                 loop sock $ execState (reactEvent evt') is'
                 return ()
 
@@ -67,7 +69,7 @@ loop sock is = do
             case ret of
                 (Left err)      -> print err
                 (Right "show")  -> print is'
-                (Right "m")     -> let (Just mat) = Map.lookup pl mats
+                (Right "m")     -> let (Just (objType, mat)) = Map.lookup pl mats
                                    in sendEvent sock $ CharacterMovedEvent pl
                                        [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
                 otherwise       -> return ()
@@ -92,7 +94,7 @@ parseInput line = do
             -- takes 1 argument of direction to move
             "m"       -> if length args < 2
                          then (Left "not enough arguments for `m` command", s)
-                         else let (Just mat) = Map.lookup pl mats
+                         else let (Just (objType, mat)) = Map.lookup pl mats
                                   direction = case args !! 1 of
                                       "n" -> [ 0, 0, 1]
                                       "s" -> [ 0, 0,-1]
@@ -133,12 +135,12 @@ reactEvent evt@(EventDescriptor typ evtData) =
             let (CharacterMovedEvent id loc) = getEvent evt
                 mat = Map.lookup id mats
                 mat' = case mat of
-                    (Just mat'') -> mat''
+                    (Just (objType, mat'')) -> mat''
                     -- if we don't already have any information for this object, then make a new one and update it
                     -- will need to poll the server for data on this object since we don't have it yet
                     -- type information, etc.
                     Nothing -> let newId = execState (createObjectSpecificID id) s
-                                   (Just mat'') = Map.lookup id mats
+                                   (Just (objType, mat'')) = Map.lookup id mats
                                in mat''
             in ((), execState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s)
         "approveCharacterCreationRequest" ->

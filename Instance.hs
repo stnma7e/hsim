@@ -31,45 +31,46 @@ emptyInstanceState = InstanceState (-1) (TransformManager Map.empty) (CharacterM
 
 start :: GOiD -> Instance ()
 start playerId = do
-    createObject
+    createObjectSpecificID playerId
     (InstanceState _ tm cm oc) <- get
     put $ InstanceState playerId tm cm oc
 
 update :: Instance ()
-update = do
-    updateTransformManager
-    updateCharacterManager
+update = state $ \(InstanceState pl tm cm oc) ->
+    ((), InstanceState pl (updateManager tm) (updateManager cm) oc)
 
-updateTransformManager :: Instance ()
-updateTransformManager = state $ \(InstanceState pl tm cm oc) ->
-    let itm = case Component.update tm of
-                  (Right tm') -> tm'
-                  (Left err)  -> error err
-    in ((), InstanceState pl itm cm oc)
-updateCharacterManager :: Instance ()
-updateCharacterManager = state $ \(InstanceState pl tm cm oc) ->
-    let icm = case Component.update cm of
-                  (Right cm') -> cm'
-                  (Left err)  -> error err
-    in ((), InstanceState pl tm icm oc)
+updateManager :: ComponentCreator a => a -> a
+updateManager cc =
+    case Component.update cc of
+        (Right cc') -> cc'
+        (Left err)  -> error err
 
 createObject :: Instance GOiD
 createObject = state $ \s -> 
-    let (InstanceState pl tm cm oc) = execState (createObjectSpecificID oc) s
-    in (oc, (InstanceState pl tm cm (oc + 1)))
+    let id = oc + 1
+        (InstanceState pl tm cm oc) = execState (createObjectSpecificID id) s
+    in (id, (InstanceState pl tm cm id))
 
 createObjectSpecificID :: GOiD -> Instance ()
-createObjectSpecificID idToMake = state $ \(InstanceState pl tm cm oc) -> 
-    let itm = case createComponent idToMake tm of
-                  (Right tm') -> tm'
-                  (Left err)  -> error err
-        icm = case createComponent idToMake cm of
-                  (Right cm') -> cm'
-                  (Left err) -> error err
-    in ((), InstanceState pl itm icm oc)
+createObjectSpecificID idToMake = state $ \(InstanceState pl tm cm oc) ->
+    ((), InstanceState pl (createObjectForManager idToMake tm) (createObjectForManager idToMake cm) oc)
 
-moveObject :: GOiD -> Mat.Matrix Float ->  Instance ()
-moveObject id newLoc = state $ \(InstanceState pl tm cm oc) -> ((), InstanceState pl (moveComponent tm id newLoc) cm oc)
+createObjectForManager :: ComponentCreator a => GOiD -> a -> a
+createObjectForManager idToMake cc =
+    case createComponent idToMake cc of
+        (Right cc') -> cc'
+        (Left err)  -> error err
+    
+--
+-- Wrapper functions
+--
+
+moveObject :: GOiD -> Mat.Matrix Float -> Instance ()
+moveObject id newLoc = state $ \s@(InstanceState pl tm cm oc) -> 
+    let newTm = moveComponent tm id newLoc
+    in case newTm of
+        (Right tm') -> ((), InstanceState pl tm' cm oc)
+        (Left err)  -> error err
 
 attackObject :: GOiD -> GOiD -> Instance ()
 attackObject id1 id2 = state $ \(InstanceState pl tm cm oc) -> ((), InstanceState pl tm (attackComponent cm id1 id2) oc)
