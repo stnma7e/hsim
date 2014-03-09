@@ -3,17 +3,15 @@
 
 module Main where
 
-import Network.Socket hiding (recv)
-import Network.Socket.ByteString (recv)
-import Data.ByteString.Char8 as B (unpack)
-import Control.Monad
-import Data.Maybe
-import Control.Monad.Trans
-import Control.Monad.Trans.State
-import qualified Numeric.Matrix as Mat
-import qualified Data.Map as Map
+import Network.Socket hiding           (recv)
+import Network.Socket.ByteString       (recv)
+import Data.ByteString.Char8 as B      (unpack)
+import Control.Monad.Trans.State       (state, execState, runState)
+import qualified Numeric.Matrix as Mat (at, times, fromList)
+import qualified Data.Map as Map       (lookup)
 
 import Instance
+import Game
 import Event
 import Math
 import Component.Manager.Transform
@@ -31,7 +29,8 @@ main = do
 -- The port here isn't specified because it doesn't matter.
 -- Then begin the main loop with getting events and reacting to them.
 
-    addrInfo <- getAddrInfo (Just defaultHints) (Just "127.0.0.1") (Just "13560")
+    -- if you use 'localhost' instead of 127.0.0.1 for the address, then it doesn't work
+    addrInfo <- getAddrInfo (Just defaultHints) (Just "127.0.01") (Just "13560")
     let serverAddr = head addrInfo
     sock <- socket (addrFamily serverAddr) (addrSocketType serverAddr) (addrProtocol serverAddr)
     connect sock (addrAddress serverAddr)
@@ -41,23 +40,29 @@ main = do
     case evt of
         (Left err)   -> putStrLn err
         (Right evt'@(EventDescriptor typ evtData)) ->
+            -- we're looking for an `approveCharacterCreationRequest' event from the server
+            -- to get the player's GOiD
             if typ /= "approveCharacterCreationRequest"
             then error $ "wrong event recieved: should be approveCharacterCreationRequest; was "++typ
             else do
-                dispatch evt'
+                putStrLn $ dispatch evt'
+
                 -- get player's goid from the server make an Instance with that
                 let (ApproveCharacterCreationRequestEvent id)  = getEvent evt' :: ApproveCharacterCreationRequestEvent
-                let (ret, is) = flip runState emptyInstanceState $ do
+                let is = flip execState emptyInstanceState $ do
                     start id
                     update
-                loop sock $ execState (reactEvent evt') is
+                isn <- run (Scene1) is
+                let is' = execState isn is
+                loop sock $ execState (reactEvent evt') is'
+                return ()
 
-loop :: Socket -> InstanceState -> IO ()
+loop :: Socket -> InstanceState -> IO (Instance ())
 loop sock is = do
     com <- getLine
-    let (ret, is'@(InstanceState pl (TransformManager mats) _)) = runState (parseInput com) is
+    let (ret, is'@(InstanceState pl (TransformManager mats) _ _)) = runState (parseInput com) is
     case ret of 
-        (Right "quit") -> return ()
+        (Right "quit") -> return . state $ \s -> ((), is)
         otherwise -> do
             case ret of
                 (Left err)      -> print err
@@ -72,7 +77,7 @@ loop sock is = do
 parseInput :: String -> Instance (Either String String)
 parseInput line = do
     let args = words line
-    state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids)) ->
+    state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids) _) ->
         if null args
         then (Left "no text printed", s)
         else let com = head args
@@ -82,8 +87,7 @@ parseInput line = do
             "create"  -> if length args < 2
                          then (Left "not enough arguments for `create` command", s)
                          else let n = read $ args !! 1
-                                  is = execState (createObject n) s
-                              in (Right com, is)
+                              in (Right com, execState (createObjectSpecificID n) s)
             -- movement command
             -- takes 1 argument of direction to move
             "m"       -> if length args < 2
@@ -94,12 +98,11 @@ parseInput line = do
                                       "s" -> [ 0, 0,-1]
                                       "e" -> [ 1, 0, 0]
                                       "w" -> [-1, 0, 0]
-                                  is = execState (moveObject pl (mat `Mat.times` buildTranslationMatrix (4,4) direction)) s
-                              in (Right com, is)
+                              in (Right com, execState (moveObject pl (mat `Mat.times` buildTranslationMatrix (4,4) direction)) s)
             -- attack command
             -- takes 1 argument of ID for player to attack
             "a"       -> if length args < 2
-                         then (Left "not enough arguments for `m` command", s)
+                         then (Left "not enough arguments for `a` command", s)
                          else let n = read $ args !! 1
                                   is = execState (attackObject pl n) s
                               in (Right com, is)
@@ -112,16 +115,16 @@ parseInput line = do
                              where commands :: [String]
                                    commands = ["quit", "show"]
 
-dispatch :: EventDescriptor -> IO ()
+dispatch :: EventDescriptor -> String 
 dispatch evt@(EventDescriptor typ evtData)
-    | typ == "attack"                          = print (getEvent evt :: AttackEvent)
-    | typ == "characterMoved"                  = print (getEvent evt :: CharacterMovedEvent)
-    | typ == "approveCharacterCreationRequest" = print (getEvent evt :: ApproveCharacterCreationRequestEvent)
-    | otherwise                                = print evt
+    | typ == "attack"                          = show (getEvent evt :: AttackEvent)
+    | typ == "characterMoved"                  = show (getEvent evt :: CharacterMovedEvent)
+    | typ == "approveCharacterCreationRequest" = show (getEvent evt :: ApproveCharacterCreationRequestEvent)
+    | otherwise                                = show evt
 
 reactEvent :: EventDescriptor -> Instance ()
 reactEvent evt@(EventDescriptor typ evtData) =
-    state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids)) ->
+    state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids) _) ->
     case typ of
         "attack" ->
             let (AttackEvent (id1,id2)) = getEvent evt
@@ -134,11 +137,11 @@ reactEvent evt@(EventDescriptor typ evtData) =
                     -- if we don't already have any information for this object, then make a new one and update it
                     -- will need to poll the server for data on this object since we don't have it yet
                     -- type information, etc.
-                    Nothing -> let newId = execState (createObject id) s
+                    Nothing -> let newId = execState (createObjectSpecificID id) s
                                    (Just mat'') = Map.lookup id mats
                                in mat''
             in ((), execState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s)
         "approveCharacterCreationRequest" ->
             let (ApproveCharacterCreationRequestEvent id) = getEvent evt
-            in ((), execState (createObject id) s)
+            in ((), execState (createObjectSpecificID id) s)
         otherwise -> error $ "unsupported event type: "++typ ++ "\n\t data: " ++ show evtData

@@ -5,16 +5,15 @@ module Event
 , (!)
 , recvEvent
 , sendEvent
-)
-where
+) where
 
 import Control.Monad
 import Control.Applicative
 import System.IO
 import Text.JSON
 
-import Network.Socket hiding (recv, sendAll)
-import Network.Socket.ByteString (recv, sendAll)
+import Network.Socket hiding      (recv, sendAll)
+import Network.Socket.ByteString  (recv, sendAll)
 import Data.ByteString.Char8 as C (unpack, pack)
 
 import Instance
