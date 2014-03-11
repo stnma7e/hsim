@@ -12,7 +12,7 @@ module Instance
 
 import Control.Monad.Trans.State       (State(..), state, get, put, execState)
 import qualified Data.Map as Map       (empty)
-import qualified Numeric.Matrix as Mat (Matrix)
+import qualified Numeric.Matrix as Mat (Matrix, unit, times, toList)
 
 import Component
 import Component.Manager.Transform
@@ -31,7 +31,7 @@ emptyInstanceState = InstanceState (-1) (TransformManager Map.empty) (CharacterM
 
 start :: GOiD -> Instance ()
 start playerId = do
-    createObjectSpecificID playerId
+    createObjectSpecificID playerId $ buildMatString Open (Mat.unit 4)
     (InstanceState _ tm cm oc) <- get
     put $ InstanceState playerId tm cm oc
 
@@ -45,19 +45,19 @@ updateManager cc =
         (Right cc') -> cc'
         (Left err)  -> error err
 
-createObject :: Instance GOiD
-createObject = state $ \s -> 
+createObject :: String -> Instance GOiD
+createObject objData = state $ \s -> 
     let id = oc + 1
-        (InstanceState pl tm cm oc) = execState (createObjectSpecificID id) s
+        (InstanceState pl tm cm oc) = execState (createObjectSpecificID id objData) s
     in (id, InstanceState pl tm cm id)
 
-createObjectSpecificID :: GOiD -> Instance ()
-createObjectSpecificID idToMake = state $ \(InstanceState pl tm cm oc) ->
-    ((), InstanceState pl (createObjectForManager idToMake tm) (createObjectForManager idToMake cm) oc)
+createObjectSpecificID :: GOiD -> String -> Instance ()
+createObjectSpecificID idToMake objData = state $ \(InstanceState pl tm cm oc) ->
+    ((), InstanceState pl (createObjectForManager idToMake objData tm) (createObjectForManager idToMake objData cm) oc)
 
-createObjectForManager :: ComponentCreator a => GOiD -> a -> a
-createObjectForManager idToMake cc =
-    case createComponent idToMake cc of
+createObjectForManager :: ComponentCreator a => GOiD -> String -> a -> a
+createObjectForManager idToMake objData cc =
+    case createComponent idToMake objData cc of
         (Right cc') -> cc'
         (Left err)  -> error err
     

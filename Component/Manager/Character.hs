@@ -21,7 +21,7 @@ data CharacterManager = CharacterManager (Map.Map GOiD (CharacterComponent, AiFu
                         deriving Show
 
 instance ComponentCreator CharacterManager where
-	createComponent goid (CharacterManager ids) = Right . CharacterManager $ Map.insert goid (CharacterComponent 10 1 10, \gid m1 m2 -> state $ \s -> ((), s)) ids
+	createComponent goid objData (CharacterManager ids) = Right . CharacterManager $ Map.insert goid (CharacterComponent 10 1 10, \gid m1 m2 -> state $ \s -> ((), s)) ids
 	update = Right
 
 attackComponent :: CharacterManager -> GOiD -> GOiD -> CharacterManager

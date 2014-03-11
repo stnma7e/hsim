@@ -6,6 +6,7 @@ import Control.Monad.Trans.State (state, runState)
 import qualified Numeric.Matrix as Mat
 
 import Script
+import Component.Manager.Transform
 import Instance
 import Math     (buildTranslationMatrix)
 
@@ -18,8 +19,8 @@ instance Script Scene1 where
             putLine "Use the `m` command to move around."
 
             return . state $ \s -> flip runState s $ do
-                goid <- createObject
-                moveObject goid (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])
+                createObject $ buildMatString Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])
+                return ()
 
         , do
             putLine "Did you see him?"

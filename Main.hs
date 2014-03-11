@@ -7,7 +7,7 @@ import Network.Socket hiding           (recv)
 import Network.Socket.ByteString       (recv)
 import Data.ByteString.Char8 as B      (unpack)
 import Control.Monad.Trans.State       (state, execState, runState)
-import qualified Numeric.Matrix as Mat (at, times, fromList)
+import qualified Numeric.Matrix as Mat (unit, at, times, fromList)
 import qualified Data.Map as Map       (lookup)
 
 import Instance
@@ -52,7 +52,7 @@ main = do
                     start id
                     update
                     reactEvent evt'
-                putStrLn eventType
+                -- putStrLn eventType
 
                 loop sock is $ run Scene1
                 return ()
@@ -73,7 +73,7 @@ loop sock is (s:sx) = do
             case ret of
                 (Left err)      -> print err
                 (Right "show")  -> print is'
-                (Right "m")     -> let (Just (objType, mat)) = Map.lookup pl mats
+                (Right "m")     -> let (Just (TransformComponent objType mat)) = Map.lookup pl mats
                                    in sendEvent sock $ CharacterMovedEvent pl
                                        [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
                 otherwise       -> return ()
@@ -93,12 +93,12 @@ parseInput line = do
             "create"  -> if length args < 2
                          then (Left "not enough arguments for `create` command", s)
                          else let n = read $ args !! 1
-                              in (Right com, execState (createObjectSpecificID n) s)
+                              in (Right com, execState (createObjectSpecificID n $ buildMatString Open (Mat.unit 4)) s)
             -- movement command
             -- takes 1 argument of direction to move
             "m"       -> if length args < 2
                          then (Left "not enough arguments for `m` command", s)
-                         else let (Just (objType, mat)) = Map.lookup pl mats
+                         else let (Just (TransformComponent objType mat)) = Map.lookup pl mats
                                   direction = case args !! 1 of
                                       "n" -> [ 0, 0, 1]
                                       "s" -> [ 0, 0,-1]
@@ -132,15 +132,15 @@ reactEvent evt@(EventDescriptor typ evtData) =
             let ce@(CharacterMovedEvent id loc) = getEvent evt
                 mat = Map.lookup id mats
                 mat' = case mat of
-                    (Just (objType, mat'')) -> mat''
+                    (Just (TransformComponent objType mat'')) -> mat''
                     -- if we don't already have any information for this object, then make a new one and update it
                     -- will need to poll the server for data on this object since we don't have it yet
                     -- type information, etc.
-                    Nothing -> let newId = execState (createObjectSpecificID id) s
-                                   (Just (objType, mat'')) = Map.lookup id mats
+                    Nothing -> let newId = execState (createObjectSpecificID id $ buildMatString Open (Mat.unit 4)) s
+                                   (Just (TransformComponent objType mat'')) = Map.lookup id mats
                                in mat''
             in (show ce, execState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s)
         "approveCharacterCreationRequest" ->
             let accre@(ApproveCharacterCreationRequestEvent id) = getEvent evt
-            in (show accre, execState (createObjectSpecificID id) s)
+            in (show accre, execState (createObjectSpecificID id $ buildMatString Open (Mat.unit 4)) s)
         otherwise -> error $ "unsupported event type: " ++ typ ++ "\n\t data: " ++ show evtData

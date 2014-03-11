@@ -17,6 +17,7 @@ import Network.Socket.ByteString  (recv, sendAll)
 import Data.ByteString.Char8 as C (unpack, pack)
 
 import Instance
+import Common
 
 jsonTypeField  = "Type"
 jsonEventField = "Event"
@@ -32,19 +33,15 @@ data EventDescriptor = EventDescriptor
     , eventData :: JSValue
     } deriving (Show)
 
--- borrowed from http://stackoverflow.com/a/17844540/2977341 
-(!) :: JSON a => JSObject JSValue -> String -> Result a
-(!) = flip valFromObj
-
 instance JSON EventDescriptor where
     showJSON = undefined
     readJSON (JSObject obj) = 
         let event = fmap (map toEnum) (obj ! jsonEventField :: Result [Int]) :: Result String
         in case event of
-        (Ok event') -> EventDescriptor   <$>
-                       obj ! jsonTypeField <*>
-                       decode event'
-        (Error err) -> error err
+            (Ok event') -> EventDescriptor   <$>
+                           obj ! jsonTypeField <*>
+                           decode event'
+            (Error err) -> error err
     readJSON _ = mzero
 
 recvEvent :: Socket -> IO (Either String EventDescriptor)
