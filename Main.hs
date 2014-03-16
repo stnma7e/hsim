@@ -54,7 +54,7 @@ main = do
                     reactEvent evt'
                 -- putStrLn eventType
 
-                loop sock is $ run Scene1
+                loop sock is $ (run Scene1) ++ repeat (return . state $ \s -> ((), s))
                 return ()
 
 loop :: Socket -> InstanceState -> [IO (Instance ())] -> IO (Instance ())
@@ -66,7 +66,7 @@ loop sock is (s:sx) = do
 
     -- then parse commands and junk like normal
     com <- getLine
-    let (ret, is'@(InstanceState pl (TransformManager mats) _ _)) = runState (parseInput com) scene'
+    let (ret, is'@(InstanceState pl (TransformManager mats _) _ _)) = runState (parseInput com) scene'
     case ret of 
         (Right "quit") -> return . state $ const ((), is)
         otherwise -> do
@@ -83,7 +83,7 @@ loop sock is (s:sx) = do
 parseInput :: String -> Instance (Either String String)
 parseInput line = do
     let args = words line
-    state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids) _) ->
+    state $ \s@(InstanceState pl tm@(TransformManager mats _) cm@(CharacterManager ids) _) ->
         if null args
         then (Left "no text printed", s)
         else let com = head args
@@ -93,7 +93,7 @@ parseInput line = do
             "create"  -> if length args < 2
                          then (Left "not enough arguments for `create` command", s)
                          else let n = read $ args !! 1
-                              in (Right com, execState (createObjectSpecificID n $ buildMatString Open (Mat.unit 4)) s)
+                              in (Right com, execState (createObjectSpecificID n $ buildTransformComponentJSON Open (Mat.unit 4)) s)
             -- movement command
             -- takes 1 argument of direction to move
             "m"       -> if length args < 2
@@ -104,7 +104,10 @@ parseInput line = do
                                       "s" -> [ 0, 0,-1]
                                       "e" -> [ 1, 0, 0]
                                       "w" -> [-1, 0, 0]
-                              in (Right com, execState (moveObject pl (mat `Mat.times` buildTranslationMatrix (4,4) direction)) s)
+                                      otherwise -> []
+                              in if null direction
+                                 then (Left $ "`" ++ args !! 1 ++ "` is not a valid direction.", s)
+                                 else (Right com, execState (moveObject pl (mat `Mat.times` buildTranslationMatrix (4,4) direction)) s)
             -- attack command
             -- takes 1 argument of ID for player to attack
             "a"       -> if length args < 2
@@ -123,7 +126,7 @@ parseInput line = do
 
 reactEvent :: EventDescriptor -> Instance String
 reactEvent evt@(EventDescriptor typ evtData) =
-    state $ \s@(InstanceState pl tm@(TransformManager mats) cm@(CharacterManager ids) _) ->
+    state $ \s@(InstanceState pl tm@(TransformManager mats _) cm@(CharacterManager ids) _) ->
     case typ of
         "attack" ->
             let ae@(AttackEvent (id1,id2)) = getEvent evt
@@ -136,11 +139,11 @@ reactEvent evt@(EventDescriptor typ evtData) =
                     -- if we don't already have any information for this object, then make a new one and update it
                     -- will need to poll the server for data on this object since we don't have it yet
                     -- type information, etc.
-                    Nothing -> let newId = execState (createObjectSpecificID id $ buildMatString Open (Mat.unit 4)) s
+                    Nothing -> let newId = execState (createObjectSpecificID id $ buildTransformComponentJSON Open (Mat.unit 4)) s
                                    (Just (TransformComponent objType mat'')) = Map.lookup id mats
                                in mat''
             in (show ce, execState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s)
         "approveCharacterCreationRequest" ->
             let accre@(ApproveCharacterCreationRequestEvent id) = getEvent evt
-            in (show accre, execState (createObjectSpecificID id $ buildMatString Open (Mat.unit 4)) s)
+            in (show accre, execState (createObjectSpecificID id $ buildTransformComponentJSON Open (Mat.unit 4)) s)
         otherwise -> error $ "unsupported event type: " ++ typ ++ "\n\t data: " ++ show evtData

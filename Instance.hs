@@ -27,11 +27,11 @@ data InstanceState = InstanceState
     } deriving (Show)
 
 emptyInstanceState :: InstanceState
-emptyInstanceState = InstanceState (-1) (TransformManager Map.empty) (CharacterManager Map.empty) 0
+emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) 0
 
 start :: GOiD -> Instance ()
 start playerId = do
-    createObjectSpecificID playerId $ buildMatString Open (Mat.unit 4)
+    createObjectSpecificID playerId $ buildTransformComponentJSON Open (Mat.unit 4)
     (InstanceState _ tm cm oc) <- get
     put $ InstanceState playerId tm cm oc
 

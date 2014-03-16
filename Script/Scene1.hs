@@ -19,10 +19,10 @@ instance Script Scene1 where
             putLine "Use the `m` command to move around."
 
             return . state $ \s -> flip runState s $ do
-                createObject $ buildMatString Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])
+                createObject $ buildTransformComponentJSON Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])
                 return ()
 
         , do
             putLine "Did you see him?"
             return . state $ \s -> ((), s)
-        ] ++ repeat (return . state $ \s -> ((), s))
+        ]
