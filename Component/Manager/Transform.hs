@@ -17,9 +17,12 @@ import Component
 import Common
 import Math
 
+type ComponentMap = Map.Map GOiD TransformComponent
+type Grid = Map.Map (Int, Int) [GOiD]
+
 data TransformManager = TransformManager
-    { component        :: (Map.Map GOiD TransformComponent)
-    , spatialPartition :: (Map.Map (Int, Int) [GOiD])
+    { components       :: ComponentMap
+    , spatialPartition :: Grid
     }
                         deriving Show
 
@@ -36,11 +39,10 @@ instance ComponentCreator TransformManager where
 data UpdateType = Insert
                 | Delete
                   deriving Show
-updateGrid :: GOiD -> (Int, Int) -> UpdateType -> Map.Map (Int, Int) [GOiD] -> Map.Map (Int, Int) [GOiD]
-updateGrid goid loc (Insert) grid = let gridSpace = Map.lookup loc grid
-                                    in if not $ isJust gridSpace
-                                       then Map.insert loc [goid] grid
-                                       else Map.update (Just . (++) [goid]) loc grid
+updateGrid :: GOiD -> (Int, Int) -> UpdateType -> Grid -> Grid
+updateGrid goid loc (Insert) grid = if Map.member loc grid
+                                    then Map.update (Just . (++) [goid]) loc grid
+                                    else Map.insert loc [goid] grid
 updateGrid goid loc (Delete) grid = let newGrid = Map.update (Just . foldr (\x acc -> if goid == x then acc else x:acc) []) loc grid
                                         gridSpace = Map.lookup loc newGrid
                                     in case gridSpace of
@@ -87,15 +89,27 @@ moveComponent (TransformManager mats grid) goid newLoc =
                                                     loc = getGridXY newLoc
                                                 in case tc of
                                                     (Just (TransformComponent typ mat)) ->
-                                                        let oldLoc = getGridXY mat
-                                                            gridWithOldDeleted = updateGrid goid oldLoc Delete grid
-                                                            grid'  = updateGrid goid loc Insert gridWithOldDeleted
-                                                        in Right $ TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid'
+                                                        let collisionId = checkCollision loc mats grid
+                                                        in if collisionId > 0
+                                                           then Left $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD " ++ show collisionId ++ "."
+                                                           else let oldLoc = getGridXY mat
+                                                                    gridWithOldDeleted = updateGrid goid oldLoc Delete grid
+                                                                    grid'  = updateGrid goid loc Insert gridWithOldDeleted
+                                                                in Right $ TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid'
                                                     otherwise -> Left $ "no matrix for component when moving; GOiD: " ++ show goid
         otherwise                            -> Left $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
+
+checkCollision :: (Int, Int) -> ComponentMap -> Grid -> GOiD 
+checkCollision loc mats grid = let ids = Map.lookup loc grid
+                               in case ids of
+                                   (Just ids') -> foldr checkBlocked (-1) (Map.toList $ Map.filterWithKey (\x _ -> x `elem` ids') mats)
+                                                      where checkBlocked :: (GOiD, TransformComponent) -> GOiD -> GOiD
+                                                            checkBlocked (goid, TransformComponent Blocked _) _ = goid
+                                                            checkBlocked (_,    TransformComponent Open _)  acc = acc
+                                   otherwise -> -1
 
 buildTransformComponentJSON :: ObjectType -> Mat.Matrix Float -> String
 buildTransformComponentJSON objType mat = "{"
                            ++ "\"ObjType\": \"" ++ show objType ++ "\",\n"
-                           ++ "\"Mat\": \"" ++ (concat . intersperse " " . lines $ show mat) ++ "\"\n"
+                           ++ "\"Mat\": \"" ++ (unwords . lines $ show mat) ++ "\"\n"
                            ++ "}"

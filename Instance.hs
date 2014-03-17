@@ -65,12 +65,12 @@ createObjectForManager idToMake objData cc =
 -- Wrapper functions
 --
 
-moveObject :: GOiD -> Mat.Matrix Float -> Instance ()
+moveObject :: GOiD -> Mat.Matrix Float -> Instance String
 moveObject id newLoc = state $ \s@(InstanceState pl tm cm oc) -> 
     let newTm = moveComponent tm id newLoc
     in case newTm of
-        (Right tm') -> ((), InstanceState pl tm' cm oc)
-        (Left err)  -> error err
+        (Right tm') -> ("", InstanceState pl tm' cm oc)
+        (Left err)  -> (err, s)
 
 attackObject :: GOiD -> GOiD -> Instance ()
 attackObject id1 id2 = state $ \(InstanceState pl tm cm oc) -> ((), InstanceState pl tm (attackComponent cm id1 id2) oc)

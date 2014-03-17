@@ -54,7 +54,7 @@ main = do
                     reactEvent evt'
                 -- putStrLn eventType
 
-                loop sock is $ (run Scene1) ++ repeat (return . state $ \s -> ((), s))
+                loop sock is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
                 return ()
 
 loop :: Socket -> InstanceState -> [IO (Instance ())] -> IO (Instance ())
@@ -107,7 +107,10 @@ parseInput line = do
                                       otherwise -> []
                               in if null direction
                                  then (Left $ "`" ++ args !! 1 ++ "` is not a valid direction.", s)
-                                 else (Right com, execState (moveObject pl (mat `Mat.times` buildTranslationMatrix (4,4) direction)) s)
+                                 else let (err, s') = runState (moveObject pl (mat `Mat.times` buildTranslationMatrix (4,4) direction)) s
+                                      in if not $ null err
+                                         then (Left err, s)
+                                         else (Right com, s')
             -- attack command
             -- takes 1 argument of ID for player to attack
             "a"       -> if length args < 2
@@ -142,7 +145,10 @@ reactEvent evt@(EventDescriptor typ evtData) =
                     Nothing -> let newId = execState (createObjectSpecificID id $ buildTransformComponentJSON Open (Mat.unit 4)) s
                                    (Just (TransformComponent objType mat'')) = Map.lookup id mats
                                in mat''
-            in (show ce, execState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s)
+                (err, s') = runState (moveObject id (mat' `Mat.times` Mat.fromList [loc])) s
+            in if not $ null err
+               then (err, s)
+               else (show ce, s')
         "approveCharacterCreationRequest" ->
             let accre@(ApproveCharacterCreationRequestEvent id) = getEvent evt
             in (show accre, execState (createObjectSpecificID id $ buildTransformComponentJSON Open (Mat.unit 4)) s)
