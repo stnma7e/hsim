@@ -7,6 +7,7 @@ import qualified Numeric.Matrix as Mat
 
 import Script
 import Component.Manager.Transform
+import Component.Manager.Character
 import Instance
 import Math     (buildTranslationMatrix)
 
@@ -19,7 +20,9 @@ instance Script Scene1 where
             putLine "Use the `m` command to move around."
 
             return . state $ \s -> flip runState s $ do
-                createObject $ buildTransformComponentJSON Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])
+                let json = buildJSON (buildTransformComponentJSON Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])) (buildCharacterComponentJSON 10 5 10 Betuol)
+
+                createObject json
                 return ()
 
         , do

@@ -28,7 +28,7 @@ data TransformManager = TransformManager
 
 instance ComponentCreator TransformManager where
     createComponent id objData (TransformManager mats grid) =
-        let tc = decode objData :: Result TransformComponent
+        let tc = readJSON objData :: Result TransformComponent
         in case tc of
             (Ok tc'@(TransformComponent _ mat)) -> let loc     = getGridXY mat
                                                        newGrid = updateGrid id loc Insert grid
@@ -110,6 +110,6 @@ checkCollision loc mats grid = let ids = Map.lookup loc grid
 
 buildTransformComponentJSON :: ObjectType -> Mat.Matrix Float -> String
 buildTransformComponentJSON objType mat = "{"
-                           ++ "\"ObjType\": \"" ++ show objType ++ "\",\n"
-                           ++ "\"Mat\": \"" ++ (unwords . lines $ show mat) ++ "\"\n"
+                           ++ "\"ObjType\": \"" ++ show objType ++ "\","
+                           ++ "\"Mat\": \"" ++ (unwords . lines $ show mat) ++ "\""
                            ++ "}"
