@@ -3,7 +3,6 @@ module Component.Manager.Transform
 , TransformComponent(..)
 , ObjectType(..)
 , moveComponent
-, buildTransformComponentJSON
 ) where
 
 import qualified Data.Map as Map
@@ -59,7 +58,10 @@ data TransformComponent = TransformComponent ObjectType (Mat.Matrix Float)
                           deriving Show
 
 instance JSON TransformComponent where
-    showJSON = undefined
+    showJSON (TransformComponent objType mat) = showJSON $ makeObj [
+          ("ObjType", showJSON $ show objType)
+        , ("Mat", showJSON (unwords. lines $ show mat))
+        ]
     readJSON (JSObject obj) = 
         let objType = obj ! "ObjType" :: Result String
             mat     = obj ! "Mat"     :: Result String
@@ -107,9 +109,3 @@ checkCollision loc mats grid = let ids = Map.lookup loc grid
                                                             checkBlocked (goid, TransformComponent Blocked _) _ = goid
                                                             checkBlocked (_,    TransformComponent Open _)  acc = acc
                                    otherwise -> -1
-
-buildTransformComponentJSON :: ObjectType -> Mat.Matrix Float -> String
-buildTransformComponentJSON objType mat = "{"
-                           ++ "\"ObjType\": \"" ++ show objType ++ "\","
-                           ++ "\"Mat\": \"" ++ (unwords . lines $ show mat) ++ "\""
-                           ++ "}"

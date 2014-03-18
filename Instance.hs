@@ -8,7 +8,7 @@ module Instance
 , createObjectSpecificID
 , moveObject
 , attackObject
-, buildJSON
+, buildObjectJSON
 ) where 
 
 import Control.Monad.Trans.State       (State(..), state, get, put, execState)
@@ -33,15 +33,12 @@ data InstanceState = InstanceState
 emptyInstanceState :: InstanceState
 emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) 0
 
-buildJSON :: String -> String -> String
-buildJSON tm cm = "{"
-    ++ "\"Transform\": " ++ tm ++ ","
-    ++ "\"Character\": " ++ cm ++ ""
-    ++ "}"
+buildObjectJSON :: (JSON a, JSON b) => a -> b -> JSValue
+buildObjectJSON tm cm = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm)]
 
 start :: GOiD -> Instance ()
 start playerId = do
-    let json = buildJSON (buildTransformComponentJSON Open (Mat.unit 4)) (buildCharacterComponentJSON 10 5 10 Betuol)
+    let json = buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol)
     createObjectSpecificID playerId json
     (InstanceState _ tm cm oc) <- get
     put $ InstanceState playerId tm cm oc
@@ -73,15 +70,15 @@ instance JSON GameObjectJSON where
             (Error err) -> error $ "unable to determine `Transform` from JSON component " ++ err
     readJSON _ = mzero
 
-createObject :: String -> Instance GOiD
+createObject :: JSValue -> Instance GOiD
 createObject objData = state $ \s -> 
     let id = oc + 1
         (InstanceState pl tm cm oc) = execState (createObjectSpecificID id objData) s
     in (id, InstanceState pl tm cm id)
 
-createObjectSpecificID :: GOiD -> String -> Instance ()
+createObjectSpecificID :: GOiD -> JSValue -> Instance ()
 createObjectSpecificID idToMake objData = state $ \(InstanceState pl tm cm oc) ->
-        let jsonObj = decode objData :: Result GameObjectJSON
+        let jsonObj = readJSON objData :: Result GameObjectJSON
         in case jsonObj of
             (Ok (GameObjectJSON jsonTm jsonCm)) -> ((), InstanceState pl (createObjectForManager idToMake jsonTm tm) (createObjectForManager idToMake jsonCm cm) oc)
             (Error err) -> error err

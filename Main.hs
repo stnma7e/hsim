@@ -36,9 +36,6 @@ main = do
     sock <- socket (addrFamily serverAddr) (addrSocketType serverAddr) (addrProtocol serverAddr)
     connect sock (addrAddress serverAddr)
 
-    let json = buildJSON (buildTransformComponentJSON Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])) (buildCharacterComponentJSON 10 5 10 Betuol)
-    putStrLn json
-
     sendEvent sock $ RequestCharacterCreationEvent "player" [1,1,1]
     evt <- recvEvent sock
     case evt of
@@ -96,7 +93,7 @@ parseInput line = do
             "create"  -> if length args < 2
                          then (Left "not enough arguments for `create` command", s)
                          else let n = read $ args !! 1
-                                  json = buildJSON (buildTransformComponentJSON Open (Mat.unit 4 )) (buildCharacterComponentJSON 10 5 10 Betuol)
+                                  json = buildObjectJSON (TransformComponent Open (Mat.unit 4 )) (CharacterComponent 10 5 10 Betuol)
                               in (Right com, execState (createObjectSpecificID n json) s)
             -- movement command
             -- takes 1 argument of direction to move
@@ -146,7 +143,7 @@ reactEvent evt@(EventDescriptor typ evtData) =
                     -- if we don't already have any information for this object, then make a new one and update it
                     -- will need to poll the server for data on this object since we don't have it yet
                     -- type information, etc.
-                    Nothing -> let json = buildJSON (buildTransformComponentJSON Open (Mat.unit 4 )) (buildCharacterComponentJSON 10 5 10 Betuol)
+                    Nothing -> let json = buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol)
                                    newId = execState (createObjectSpecificID id json) s
                                    (Just (TransformComponent objType mat'')) = Map.lookup id mats
                                in mat''
@@ -156,6 +153,6 @@ reactEvent evt@(EventDescriptor typ evtData) =
                else (show ce, s')
         "approveCharacterCreationRequest" ->
             let accre@(ApproveCharacterCreationRequestEvent id) = getEvent evt
-                json = buildJSON (buildTransformComponentJSON Open (Mat.unit 4)) (buildCharacterComponentJSON 10 5 10 Betuol)
+                json = buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol)
             in (show accre, execState (createObjectSpecificID id json) s)
         otherwise -> error $ "unsupported event type: " ++ typ ++ "\n\t data: " ++ show evtData

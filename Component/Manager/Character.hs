@@ -1,9 +1,9 @@
 module Component.Manager.Character
 ( CharacterManager(..)
+, CharacterComponent(..)
 , Faction(..)
 , AiFunction
 , attackComponent
-, buildCharacterComponentJSON
 ) where
 
 import qualified Data.Map as Map
@@ -24,7 +24,12 @@ data CharacterComponent = CharacterComponent
     } deriving Show
 
 instance JSON CharacterComponent where
-    showJSON = undefined
+    showJSON (CharacterComponent health damage mana faction) = showJSON $ makeObj [
+          ("Health",  showJSON health)
+        , ("Damage",  showJSON damage)
+        , ("Mana",    showJSON mana)
+        , ("Faction", showJSON $ show faction)
+        ]
     readJSON (JSObject obj) = do
         health  <- obj ! "Health"  :: Result Float
         damage  <- obj ! "Damage"  :: Result Float
@@ -56,11 +61,3 @@ attackComponent (CharacterManager ids) id1 id2 =
     let (Just char1@(CharacterComponent health1 damage1 _ _, _)) = Map.lookup id1 ids
         (Just char2@(CharacterComponent health2 damage2 mana2 faction2, aif2)) = Map.lookup id2 ids
     in CharacterManager $ Map.update (\x -> Just (CharacterComponent (health2 - damage1) damage2 mana2 faction2, aif2)) id2 ids
-
-buildCharacterComponentJSON :: Float -> Float -> Float -> Faction -> String
-buildCharacterComponentJSON health damage mana faction = "{"
-                           ++ "\"Health\": "    ++ show health  ++ ","
-                           ++ "\"Damage\": "    ++ show damage  ++ ","
-                           ++ "\"Mana\": "      ++ show mana    ++ ","
-                           ++ "\"Faction\": \"" ++ show faction ++ "\""
-                           ++ "}"

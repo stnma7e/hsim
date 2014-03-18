@@ -20,7 +20,7 @@ instance Script Scene1 where
             putLine "Use the `m` command to move around."
 
             return . state $ \s -> flip runState s $ do
-                let json = buildJSON (buildTransformComponentJSON Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])) (buildCharacterComponentJSON 10 5 10 Betuol)
+                let json = buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [0,0,5])) (CharacterComponent 10 5 10 Betuol)
 
                 createObject json
                 return ()
