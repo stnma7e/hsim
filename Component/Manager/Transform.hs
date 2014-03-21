@@ -1,6 +1,8 @@
 module Component.Manager.Transform
 ( TransformManager(..)
 , TransformComponent(..)
+, ComponentMap
+, Grid
 , ObjectType(..)
 , moveComponent
 ) where
