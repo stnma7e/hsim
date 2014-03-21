@@ -5,6 +5,7 @@ module Event.ApproveCharacterCreationRequest
 import Text.JSON
 
 import Component
+import Common
 import Event
 
 data ApproveCharacterCreationRequestEvent = ApproveCharacterCreationRequestEvent GOiD

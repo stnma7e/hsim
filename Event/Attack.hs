@@ -5,6 +5,7 @@ module Event.Attack
 import Text.JSON
 
 import Component
+import Common
 import Event
 
 data AttackEvent = AttackEvent (GOiD, GOiD)

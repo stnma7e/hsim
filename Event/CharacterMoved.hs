@@ -5,6 +5,7 @@ module Event.CharacterMoved
 import Text.JSON
 
 import Component
+import Common
 import Event
 
 data CharacterMovedEvent = CharacterMovedEvent GOiD [Float]

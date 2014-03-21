@@ -2,9 +2,6 @@ module Event
 ( EventDescriptor(..)
 , Event(..)
 , buildEventJSON
-, (!)
-, recvEvent
-, sendEvent
 ) where
 
 import Control.Monad
@@ -43,17 +40,3 @@ instance JSON EventDescriptor where
                            decode event'
             (Error err) -> error err
     readJSON _ = mzero
-
-recvEvent :: Socket -> IO (Either String EventDescriptor)
-recvEvent sock = do
-    msg <- recv sock 1024
-    putStrLn $ "received: " ++ C.unpack msg
-    case decode (C.unpack msg) :: Result EventDescriptor of
-        (Ok evt)    -> return $ Right evt
-        (Error err) -> return $ Left ("ERROR: " ++ err)
-
-sendEvent :: (Event a) => Socket -> a -> IO ()
-sendEvent sock evt = do
-    let msg = C.pack (encode evt)
-    putStrLn $ "sending: " ++ C.unpack msg
-    sendAll sock msg

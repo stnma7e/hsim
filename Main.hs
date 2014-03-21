@@ -13,6 +13,7 @@ import qualified Data.Map as Map       (lookup)
 import Instance
 import Event
 import Math
+import Net
 import Component.Manager.Transform
 import Component.Manager.Character
 import Script

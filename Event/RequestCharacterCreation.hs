@@ -2,8 +2,10 @@ module Event.RequestCharacterCreation
 ( RequestCharacterCreationEvent(..)
 ) where
 
-import Event
 import Text.JSON
+
+import Common
+import Event
 
 data RequestCharacterCreationEvent = RequestCharacterCreationEvent String [Float]
                                      deriving Show
