@@ -34,7 +34,7 @@ buildObjectJSON tm cm = showJSON $ makeObj [("Transform", showJSON tm), ("Charac
 
 start :: Instance GOiD
 start = do
-    playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol)
+    playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
     s <- get
     put $ s { getPlayer = playerId }
     return playerId 

@@ -70,14 +70,17 @@ data TransformManager = TransformManager
 -- Character
 --
 
-data Faction = Betuol
-               deriving (Show , Read)
+data Faction = Betuol | Dunteg | Blitzal
+               deriving (Show , Read, Eq, Ord)
+type Reputation = (Faction, Int)
 data CharacterComponent = CharacterComponent
     { health  :: Float
     , damage  :: Float
     , mana    :: Float
     , faction :: Faction
+    , rep     :: [Reputation]
     } deriving Show
+
 type AiFunction = GOiD -> CharacterManager -> CharacterManager
 data CharacterManager = CharacterManager (Map.Map GOiD (CharacterComponent, AiFunction))
                         deriving Show
