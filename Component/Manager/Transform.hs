@@ -24,20 +24,16 @@ instance JSON TransformComponent where
           ("ObjType", showJSON $ show objType)
         , ("Mat", showJSON (unwords. lines $ show mat))
         ]
-    readJSON (JSObject obj) = 
-        let objType = obj ! "ObjType" :: Result String
-            mat     = obj ! "Mat"     :: Result String
-        in case objType of
-            (Ok objType') -> return $ case mat of
-                (Ok mat')   -> let mats  = map read $ words mat'
-                                   -- split the joined list into 4 rows for the matrix
-                                   (mats1, matsx1) = splitAt 4 mats
-                                   (mats2, matsx2) = splitAt 4 matsx1
-                                   (mats3, matsx3) = splitAt 4 matsx2
-                                   mats' = [mats1, mats2, mats3, matsx3]
-                               in TransformComponent (read objType') (Mat.fromList mats')
-                (Error err) -> error $ "unable to determine `Mat` from JSON component " ++ err
-            (Error err) -> error $ "unable to determine `ObjType` from JSON component " ++ err
+    readJSON (JSObject obj) = do
+        objType <- obj ! "ObjType" :: Result String
+        mat     <- obj ! "Mat"     :: Result String
+        let mats  = map read $ words mat
+            -- split the joined list into 4 rows for the matrix
+        let (mats1, matsx1) = splitAt 4 mats
+        let (mats2, matsx2) = splitAt 4 matsx1
+        let (mats3, matsx3) = splitAt 4 matsx2
+        let mats' = [mats1, mats2, mats3, matsx3]
+        return $ TransformComponent (read objType) (Mat.fromList mats')
     readJSON _ = mzero
 
 instance ComponentCreator TransformManager where
@@ -71,25 +67,27 @@ moveComponent :: TransformManager -> GOiD -> Mat.Matrix Float -> Either String T
 moveComponent (TransformManager mats grid) goid newLoc =
     let obj = Map.lookup goid mats
     in case obj of
-        (Just (TransformComponent typ _))    -> let tc  = Map.lookup goid mats
-                                                    loc = getGridXY newLoc
-                                                in case tc of
-                                                    (Just (TransformComponent typ mat)) ->
-                                                        let collisionId = checkCollision loc mats grid
-                                                        in if collisionId > 0
-                                                           then Left $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD " ++ show collisionId ++ "."
-                                                           else let oldLoc = getGridXY mat
-                                                                    gridWithOldDeleted = updateGrid goid oldLoc Delete grid
-                                                                    grid'  = updateGrid goid loc Insert gridWithOldDeleted
-                                                                in Right $ TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid'
-                                                    otherwise -> Left $ "no matrix for component when moving; GOiD: " ++ show goid
-        otherwise                            -> Left $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
+        (Just (TransformComponent typ _)) ->
+            let tc  = Map.lookup goid mats
+                loc = getGridXY newLoc
+            in case tc of
+                (Just (TransformComponent typ mat)) ->
+                    let collisionId = checkCollision loc mats grid
+                    in if collisionId > 0
+                       then Left $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD " ++ show collisionId ++ "."
+                       else let oldLoc = getGridXY mat
+                                gridWithOldDeleted = updateGrid goid oldLoc Delete grid
+                                grid'  = updateGrid goid loc Insert gridWithOldDeleted
+                            in Right $ TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid'
+                otherwise -> Left $ "no matrix for component when moving; GOiD: " ++ show goid
+        otherwise -> Left $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
 
 checkCollision :: (Int, Int) -> ComponentMap -> Grid -> GOiD 
-checkCollision loc mats grid = let ids = Map.lookup loc grid
-                               in case ids of
-                                   (Just ids') -> foldr checkBlocked (-1) (Map.toList $ Map.filterWithKey (\x _ -> x `elem` ids') mats)
-                                                      where checkBlocked :: (GOiD, TransformComponent) -> GOiD -> GOiD
-                                                            checkBlocked (goid, TransformComponent Blocked _) _ = goid
-                                                            checkBlocked (_,    TransformComponent Open _)  acc = acc
-                                   otherwise -> -1
+checkCollision loc mats grid =
+    let ids = Map.lookup loc grid
+    in case ids of
+        (Just ids') -> foldr checkBlocked (-1) (Map.toList $ Map.filterWithKey (\x _ -> x `elem` ids') mats)
+                           where checkBlocked :: (GOiD, TransformComponent) -> GOiD -> GOiD
+                                 checkBlocked (goid, TransformComponent Blocked _) _ = goid
+                                 checkBlocked (_,    TransformComponent Open _)  acc = acc
+        otherwise -> -1

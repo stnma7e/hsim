@@ -8,7 +8,6 @@ module Component.Manager.Character
 
 import Control.Monad.Trans.State (state)
 import qualified Data.Map as Map
-import Control.Monad.Trans.State
 import Text.JSON
 import Control.Monad
 
