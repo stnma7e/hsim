@@ -7,6 +7,7 @@ module Component.Manager.Transform
 , moveComponent
 ) where
 
+import Control.Monad.Trans.State (state)
 import qualified Data.Map as Map
 import qualified Numeric.Matrix as Mat
 import Text.JSON
@@ -17,47 +18,6 @@ import Data.Maybe
 import Component
 import Common
 import Math
-
-type ComponentMap = Map.Map GOiD TransformComponent
-type Grid = Map.Map (Int, Int) [GOiD]
-
-data TransformManager = TransformManager
-    { components       :: ComponentMap
-    , spatialPartition :: Grid
-    }
-                        deriving Show
-
-instance ComponentCreator TransformManager where
-    createComponent id objData (TransformManager mats grid) =
-        let tc = readJSON objData :: Result TransformComponent
-        in case tc of
-            (Ok tc'@(TransformComponent _ mat)) -> let loc     = getGridXY mat
-                                                       newGrid = updateGrid id loc Insert grid
-                                                   in Right $ TransformManager (Map.insert id tc' mats) newGrid
-            (Error err) -> error $ "creating transform component " ++ err
-    update = Right
-
-data UpdateType = Insert
-                | Delete
-                  deriving Show
-updateGrid :: GOiD -> (Int, Int) -> UpdateType -> Grid -> Grid
-updateGrid goid loc (Insert) grid = if Map.member loc grid
-                                    then Map.update (Just . (++) [goid]) loc grid
-                                    else Map.insert loc [goid] grid
-updateGrid goid loc (Delete) grid = let newGrid = Map.update (Just . foldr (\x acc -> if goid == x then acc else x:acc) []) loc grid
-                                        gridSpace = Map.lookup loc newGrid
-                                    in case gridSpace of
-                                        (Just []) -> Map.delete loc grid
-                                        otherwise -> newGrid
-
-data ObjectType = Blocked
-                | Open
-                  deriving ( Show
-                           , Read
-                           )
-
-data TransformComponent = TransformComponent ObjectType (Mat.Matrix Float)
-                          deriving Show
 
 instance JSON TransformComponent where
     showJSON (TransformComponent objType mat) = showJSON $ makeObj [
@@ -79,6 +39,28 @@ instance JSON TransformComponent where
                 (Error err) -> error $ "unable to determine `Mat` from JSON component " ++ err
             (Error err) -> error $ "unable to determine `ObjType` from JSON component " ++ err
     readJSON _ = mzero
+
+instance ComponentCreator TransformManager where
+    createComponent id objData (TransformManager mats grid) =
+        let tc = readJSON objData :: Result TransformComponent
+        in case tc of
+            (Ok tc'@(TransformComponent _ mat)) -> let loc     = getGridXY mat
+                                                       newGrid = updateGrid id loc Insert grid
+                                                   in Right $ TransformManager (Map.insert id tc' mats) newGrid
+            (Error err) -> error $ "creating transform component " ++ err
+    update _ = state $ \s -> (Nothing, s)
+
+data UpdateType = Insert | Delete
+                  deriving Show
+updateGrid :: GOiD -> (Int, Int) -> UpdateType -> Grid -> Grid
+updateGrid goid loc (Insert) grid = if Map.member loc grid
+                                    then Map.update (Just . (++) [goid]) loc grid
+                                    else Map.insert loc [goid] grid
+updateGrid goid loc (Delete) grid = let newGrid = Map.update (Just . foldr (\x acc -> if goid == x then acc else x:acc) []) loc grid
+                                        gridSpace = Map.lookup loc newGrid
+                                    in case gridSpace of
+                                        (Just []) -> Map.delete loc grid
+                                        otherwise -> newGrid
 
 getGridXY :: Mat.Matrix Float -> (Int, Int)
 getGridXY m = let x = m `Mat.at` (1, 4)

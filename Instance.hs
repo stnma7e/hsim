@@ -12,7 +12,7 @@ module Instance
 , buildObjectJSON
 ) where 
 
-import Control.Monad.Trans.State       (State(..), state, get, put, execState)
+import Control.Monad.Trans.State       (state, get, put, execState)
 import qualified Data.Map as Map       (Map(..), empty, insert, lookup)
 import qualified Numeric.Matrix as Mat (Matrix, unit, times, toList)
 import Text.JSON
@@ -25,15 +25,6 @@ import Common
 import Component
 import Component.Manager.Transform
 import Component.Manager.Character
-
-type Instance = State InstanceState
-data InstanceState = InstanceState
-    { getPlayer           :: GOiD
-    , getTransformManager :: TransformManager
-    , getCharacterManager :: CharacterManager
-    , getEvents           :: Map.Map String [Event]
-    , availiableIDS       :: [GOiD]
-    } deriving (Show)
 
 emptyInstanceState :: InstanceState
 emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) Map.empty [0..100]
@@ -51,18 +42,16 @@ start = do
 update :: Instance ()
 update = do
     (InstanceState _ tm _ _ _) <- get
-    let tm' = case Component.update tm of
-            (Left err) -> error err
-            (Right tm') -> tm'
-    (InstanceState _ _ cm _ _) <- get
-    let cm' = case Component.update cm of
-            (Left err) -> error err
-            (Right cm') -> cm'
+    tmErr <- Component.update tm
+    case tmErr of
+        (Just err) -> error err
+        otherwise  -> return ()
 
-    s <- get
-    put $ s { getTransformManager = tm'
-            , getCharacterManager = cm'
-            }
+    (InstanceState _ _ cm _ _) <- get
+    cmErr <- Component.update cm
+    case cmErr of
+        (Just err) -> error err
+        otherwise  -> return ()
 
 createObject :: JSValue -> Instance GOiD
 createObject objData = state $ \s -> 

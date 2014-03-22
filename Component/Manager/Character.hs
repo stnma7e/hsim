@@ -6,22 +6,14 @@ module Component.Manager.Character
 , attackComponent
 ) where
 
+import Control.Monad.Trans.State (state)
 import qualified Data.Map as Map
 import Control.Monad.Trans.State
-import Text.Show.Functions
 import Text.JSON
 import Control.Monad
 
 import Component
 import Common
-
-type AiFunction = GOiD -> CharacterManager -> CharacterManager
-data CharacterComponent = CharacterComponent
-    { health  :: Float
-    , damage  :: Float
-    , mana    :: Float
-    , faction :: Faction
-    } deriving Show
 
 instance JSON CharacterComponent where
     showJSON (CharacterComponent health damage mana faction) = showJSON $ makeObj [
@@ -38,23 +30,13 @@ instance JSON CharacterComponent where
         return $ CharacterComponent health damage mana (read faction)
     readJSON _ = mzero
 
-data Faction = Betuol
-             | Dunteg
-             | Blitztal
-               deriving ( Show
-                        , Read
-                        )
-
-data CharacterManager = CharacterManager (Map.Map GOiD (CharacterComponent, AiFunction))
-                        deriving Show
-
 instance ComponentCreator CharacterManager where
     createComponent goid objData (CharacterManager ids) = 
         let cc = readJSON objData :: Result CharacterComponent
         in case cc of
             (Ok cc')-> Right . CharacterManager $ Map.insert goid (cc', \gid m1 -> m1) ids
             (Error err) -> error $ "creating character component " ++ err
-    update = Right
+    update _ = state $ \s -> (Nothing, s)
 
 attackComponent :: CharacterManager -> GOiD -> GOiD -> CharacterManager
 attackComponent (CharacterManager ids) id1 id2 =

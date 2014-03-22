@@ -29,12 +29,6 @@ class (JSON a, Show a) => JSONEvent a where
 buildEventJSON :: String -> [(String, JSValue)] -> JSValue
 buildEventJSON typ event = showJSON $ makeObj [(jsonTypeField, showJSON typ), (jsonEventField, makeObj event)]
 
-data Event = AttackEvent (GOiD, GOiD)
-           | CharacterMovedEvent GOiD [Float]
-           | RequestCharacterCreationEvent String [Float]
-             deriving ( Show
-                      )
-
 instance JSON Event where
     readJSON = undefined
     showJSON (AttackEvent (char1, char2)) =
