@@ -101,13 +101,10 @@ parseInput line = do
 reactEvent :: EventDescriptor -> Instance String
 reactEvent evt@(EventDescriptor typ evtData) =
     state $ \s ->
-    case typ of
-        "attack" ->
-            let ae@(AttackEvent (id1,id2)) = getEvent evt
-            in (show ae, execState (attackObject id1 id2) s)
-        "characterMoved" ->
-            let ce@(CharacterMovedEvent id loc) = getEvent evt
-                (TransformManager mats _) = getTransformManager s
+    case getEvent evt of
+        ae@(AttackEvent (id1, id2)) -> (show ae, execState (attackObject id1 id2) s)
+        ce@(CharacterMovedEvent id loc) ->
+            let (TransformManager mats _) = getTransformManager s
                 mat = Map.lookup id mats
                 mat' = case mat of
                     (Just (TransformComponent objType mat'')) -> mat''
