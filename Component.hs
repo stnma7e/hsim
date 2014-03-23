@@ -8,6 +8,7 @@ import Control.Monad
 import qualified Data.Map as Map
 import qualified Numeric.Matrix as Mat
 import System.Random
+import Data.Maybe
 
 import Common
 
@@ -38,6 +39,14 @@ instance JSON GameObjectJSON where
                 (Error err) -> error $ "unable to determine `Character` from JSON component " ++ err
             (Error err) -> error $ "unable to determine `Transform` from JSON component " ++ err
     readJSON _ = mzero
+
+getEventsFromInstance :: [String] -> Instance [Event]
+getEventsFromInstance eventsToLookFor = do
+        s <- get
+        -- lets get a list of all the events we're going to look at
+        let evts = map (`Map.lookup` getEvents s) eventsToLookFor
+        -- then filter out all of the either empty lists or nonexistent event types
+        return . join $ filter (not . null) [fromJust x | x <- evts, isJust x]
 
 type Instance = State InstanceState
 data InstanceState = InstanceState

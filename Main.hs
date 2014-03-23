@@ -92,9 +92,9 @@ parseInput line = do
                    else do
                        s <- get
                        err <- moveObject (getPlayer s) (mat `Mat.times` buildTranslationMatrix (4,4) direction)
-                       return $ if not $ null err
-                                then Left err
-                                else Right com
+                       return $ case err of
+                           (Just err') -> Left err'
+                           otherwise   -> Right com
         -- attack command
         -- takes 1 argument of ID for player to attack
         "a"       -> if length args < 3
@@ -122,8 +122,9 @@ parseInput line = do
 reactEvent :: EventDescriptor -> Instance String
 reactEvent evt@(EventDescriptor typ evtData) =
     case getEvent evt of
-        ae@(AttackEvent (id1, id2)) -> putEvent ae
+        ae@(AttackEvent (id1, id2)) -> pushEvent ae
         ce@(CharacterMovedEvent id loc) -> do
+            pushEvent ce
             s <- get
             let (TransformManager mats _) = getTransformManager s
             let mat = Map.lookup id mats
@@ -138,7 +139,7 @@ reactEvent evt@(EventDescriptor typ evtData) =
                                    (Just (TransformComponent objType mat'')) = Map.lookup id mats
                                in mat''
             err <- moveObject id (mat' `Mat.times` Mat.fromList [loc])
-            return $ if null err
-                     then show ce
-                     else err
+            return $ case err of
+                (Just err') -> err'
+                otherwise   -> show ce
         otherwise -> error $ "unsupported event type: " ++ typ ++ "\n\t data: " ++ show evtData

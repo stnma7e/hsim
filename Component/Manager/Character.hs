@@ -41,12 +41,8 @@ instance ComponentCreator CharacterManager where
             (Ok cc')-> Right . CharacterManager $ Map.insert goid (cc', \gid m1 -> m1) ids
             (Error err) -> error $ "creating character component " ++ err
     update _ = do
-        s <- get
-        -- lets get a list of all the events we're going to look at
-        let evts = map (`Map.lookup` getEvents s) ["attack", "blah", "asg"]
-        -- then filter out all of the either empty lists or nonexistent event types
-        let fevt = filter (not . null) [fromJust x | x <- evts, isJust x]
-        updateFromEvents $ join fevt
+        evts <- getEventsFromInstance ["attack"]
+        updateFromEvents evts
         return Nothing
 
 updateFromEvents :: [Event] -> Instance ()

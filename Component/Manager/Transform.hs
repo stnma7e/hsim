@@ -1,8 +1,8 @@
 module Component.Manager.Transform
-( moveComponent
+( moveObject
 ) where
 
-import Control.Monad.Trans.State (state)
+import Control.Monad.Trans.State (state, get, put)
 import qualified Data.Map as Map
 import qualified Numeric.Matrix as Mat
 import Text.JSON
@@ -39,7 +39,17 @@ instance ComponentCreator TransformManager where
                                                        newGrid = updateGrid id loc Insert grid
                                                    in Right $ TransformManager (Map.insert id tc' mats) newGrid
             (Error err) -> error $ "creating transform component " ++ err
-    update _ = return Nothing
+    update _ = do
+        evts <- getEventsFromInstance ["characterMoved"]
+        updateFromEvents evts
+        return Nothing
+
+updateFromEvents :: [Event] -> Instance ()
+updateFromEvents [] = return ()
+updateFromEvents (evt:evts) = do
+    case evt of
+        otherwise -> return ()
+    updateFromEvents evts 
 
 data UpdateType = Insert | Delete
                   deriving Show
@@ -58,10 +68,11 @@ getGridXY m = let x = m `Mat.at` (1, 4)
                   y = m `Mat.at` (3, 4)
               in (truncate x, truncate y)
 
-moveComponent :: TransformManager -> GOiD -> Mat.Matrix Float -> Either String TransformManager
-moveComponent (TransformManager mats grid) goid newLoc =
+moveObject :: GOiD -> Mat.Matrix Float -> Instance (Maybe String)
+moveObject  goid newLoc = do
+    s@(InstanceState _ (TransformManager mats grid) _ _ _ _) <- get
     let obj = Map.lookup goid mats
-    in case obj of
+    case obj of
         (Just (TransformComponent typ _)) ->
             let tc  = Map.lookup goid mats
                 loc = getGridXY newLoc
@@ -69,13 +80,15 @@ moveComponent (TransformManager mats grid) goid newLoc =
                 (Just (TransformComponent typ mat)) ->
                     let collisionId = checkCollision loc mats grid
                     in if collisionId > 0
-                       then Left $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD " ++ show collisionId ++ "."
+                       then return . Just $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD " ++ show collisionId ++ "."
                        else let oldLoc = getGridXY mat
                                 gridWithOldDeleted = updateGrid goid oldLoc Delete grid
                                 grid'  = updateGrid goid loc Insert gridWithOldDeleted
-                            in Right $ TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid'
-                otherwise -> Left $ "no matrix for component when moving; GOiD: " ++ show goid
-        otherwise -> Left $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
+                            in do
+                                put $ s { getTransformManager = TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid' }
+                                return Nothing
+                otherwise -> return . Just $ "no matrix for component when moving; GOiD: " ++ show goid
+        otherwise -> return . Just $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
 
 checkCollision :: (Int, Int) -> ComponentMap -> Grid -> GOiD 
 checkCollision loc mats grid =

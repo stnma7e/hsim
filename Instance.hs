@@ -6,9 +6,8 @@ module Instance
 , Instance.update
 , createObject
 , createObjectSpecificID
-, putEvent
+, pushEvent
 
-, moveObject
 , buildObjectJSON
 ) where 
 
@@ -83,8 +82,8 @@ createObjectForManager idToMake objData cc =
         (Right cc') -> cc'
         (Left err)  -> error err
 
-putEvent :: Event -> Instance String
-putEvent evt = insertEvent evt $ case evt of
+pushEvent :: Event -> Instance String
+pushEvent evt = insertEvent evt $ case evt of
         (AttackEvent _) -> eventTypeAttack
     where insertEvent :: Event -> String -> Instance String
           insertEvent evt typ = state $ \s ->
@@ -94,14 +93,3 @@ putEvent evt = insertEvent evt $ case evt of
                       (Just curEvts) -> Map.insert typ (evt : curEvts) evts
                       otherwise      -> Map.insert typ [evt] evts
                   in (show evt, s { getEvents = newEventList})
-
---
--- Wrapper functions
---
-
-moveObject :: GOiD -> Mat.Matrix Float -> Instance String
-moveObject id newLoc = state $ \s ->
-    let newTm = moveComponent (getTransformManager s) id newLoc
-    in case newTm of
-        (Right tm') -> ("", s { getTransformManager = tm' })
-        (Left err)  -> (err, s)
