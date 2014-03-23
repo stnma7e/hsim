@@ -1,19 +1,21 @@
 module Component.Manager.Character
-( CharacterManager(..)
-, CharacterComponent(..)
-, Faction(..)
-, AiFunction
-, attackComponent
+( attackObject
 ) where
 
-import Control.Monad.Trans.State (state)
+import Control.Monad.Trans.State (state, get)
 import qualified Data.Map as Map
 import Text.JSON
 import Control.Monad
+import Control.Applicative
 import Data.List
+import Data.Maybe
+import System.Random
 
 import Component
 import Common
+
+data AttackType = Hit Float | Miss
+                  deriving (Show, Read)
 
 instance JSON CharacterComponent where
     showJSON (CharacterComponent health damage mana faction rep) = showJSON $ makeObj [
@@ -38,20 +40,47 @@ instance ComponentCreator CharacterManager where
         in case cc of
             (Ok cc')-> Right . CharacterManager $ Map.insert goid (cc', \gid m1 -> m1) ids
             (Error err) -> error $ "creating character component " ++ err
-    update _ = state $ \s -> (Nothing, s)
+    update _ = do
+        s <- get
+        -- lets get a list of all the events we're going to look at
+        let evts = map (flip Map.lookup (getEvents s)) ["attack", "blah", "asg"]
+        -- then filter out all of the either empty lists or nonexistent event types
+        let fevt = filter (not . null) $ [fromJust x | x <- evts, isJust x]
+        updateFromEvents $ join fevt
+        return Nothing
 
-attackComponent :: CharacterManager -> GOiD -> GOiD -> CharacterManager
-attackComponent cm@(CharacterManager ids) id1 id2 =
-    let (Just (char1, aif1)) = Map.lookup id1 ids
+updateFromEvents :: [Event] -> Instance ()
+updateFromEvents [] = return ()
+updateFromEvents (evt:evts) = do
+    case evt of
+        (AttackEvent (id1, id2)) -> do
+            attackObject id1 id2 Torso
+            return ()
+        otherwise -> return ()
+    updateFromEvents evts
+
+attackObject :: GOiD -> GOiD -> HitLocation -> Instance AttackType
+attackObject id1 id2 hitLoc = state $ \s ->
+    let (rnd, newGen) = randomR (1, 100) $ randomNumGen s :: (Int, StdGen)
+        cm@(CharacterManager ids) = getCharacterManager s
+        (Just (char1, aif1)) = Map.lookup id1 ids
+        damage1 = case hitLoc of
+            Head  -> if rnd > 10 then 0 else 15
+            Torso -> if rnd > 90 then 0 else 7
+            Legs  -> if rnd > 70 then 0 else 10
+        hitMiss = if damage1 > 0
+                  then Hit damage1
+                  else Miss
         (Just (char2, aif2)) = Map.lookup id2 ids
         (Just rep1) = lookup (faction char1) (rep char1)
         reputationDiff = if (faction char1) == (faction char2)
                          then -1 
                          else  1
-    in if (health char2) < 0 || (health char1) < 0
-       then cm
-       else let ids' = Map.update (\x -> Just (char2 { health = (health char2) - (damage char1) }, aif2)) id2 ids
-            in CharacterManager $ Map.update (\x -> Just (char2 { rep = replace ((faction char1), rep1 + reputationDiff) [] (rep char1) }, aif1)) id1 ids'
+    in if (health char2) <= 0 || (health char1) <= 0
+       then (Miss, s)
+       else let ids' = Map.update (\x -> Just (char2 { health = (health char2) - damage1 }, aif2)) id2 ids
+            in (hitMiss, s { getCharacterManager = CharacterManager $ Map.update (\x -> Just (char2 { rep = replace ((faction char1), rep1 + reputationDiff) [] (rep char1) }, aif1)) id1 ids'
+                      , randomNumGen = newGen })
                 where replace :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
                       replace _ rs [] = rs
                       replace f@(fac, _) rs (f'@(fac', rep):fx) = if fac' == fac

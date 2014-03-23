@@ -7,6 +7,7 @@ import Text.Show.Functions
 import Control.Monad
 import qualified Data.Map as Map
 import qualified Numeric.Matrix as Mat
+import System.Random
 
 import Common
 
@@ -45,7 +46,8 @@ data InstanceState = InstanceState
     , getCharacterManager :: CharacterManager
     , getEvents           :: Map.Map String [Event]
     , availiableIDS       :: [GOiD]
-    } deriving (Show)
+    , randomNumGen        :: StdGen
+    } deriving Show
 
 -------------------------------------
 -- Managers --
@@ -64,12 +66,14 @@ type Grid = Map.Map (Int, Int) [GOiD]
 data TransformManager = TransformManager
     { components       :: ComponentMap
     , spatialPartition :: Grid
-    } deriving  Show
+    } deriving Show
 
 --
 -- Character
 --
 
+data HitLocation = Head | Torso | Legs
+                   deriving (Show, Read)
 data Faction = Betuol | Dunteg | Blitzal
                deriving (Show , Read, Eq, Ord)
 type Reputation = (Faction, Int)

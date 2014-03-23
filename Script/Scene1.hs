@@ -14,7 +14,7 @@ import Math     (buildTranslationMatrix)
 
 data Scene1 = Scene1
 instance Script Scene1 where
-    run (Scene1) = [do
+    run (Scene1) = [ do
             putLine "Hey. Hey you see that guy over there?"
             putLine "He's probably up to something. Let's check it out."
             putLine "Don't just stand there."

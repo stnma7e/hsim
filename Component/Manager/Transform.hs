@@ -1,10 +1,5 @@
 module Component.Manager.Transform
-( TransformManager(..)
-, TransformComponent(..)
-, ComponentMap
-, Grid
-, ObjectType(..)
-, moveComponent
+( moveComponent
 ) where
 
 import Control.Monad.Trans.State (state)
@@ -44,7 +39,7 @@ instance ComponentCreator TransformManager where
                                                        newGrid = updateGrid id loc Insert grid
                                                    in Right $ TransformManager (Map.insert id tc' mats) newGrid
             (Error err) -> error $ "creating transform component " ++ err
-    update _ = state $ \s -> (Nothing, s)
+    update _ = return Nothing
 
 data UpdateType = Insert | Delete
                   deriving Show

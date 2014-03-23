@@ -6,19 +6,20 @@ module Instance
 , Instance.update
 , createObject
 , createObjectSpecificID
+, putEvent
 
 , moveObject
-, attackObject
 , buildObjectJSON
 ) where 
 
 import Control.Monad.Trans.State       (state, get, put, execState)
-import qualified Data.Map as Map       (Map(..), empty, insert, lookup)
-import qualified Numeric.Matrix as Mat (Matrix, unit, times, toList)
+import qualified Data.Map as Map
+import qualified Numeric.Matrix as Mat
 import Text.JSON
 import Control.Monad
 import Data.List
 import Data.Maybe
+import System.Random
 
 import Event
 import Common
@@ -27,7 +28,7 @@ import Component.Manager.Transform
 import Component.Manager.Character
 
 emptyInstanceState :: InstanceState
-emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) Map.empty [0..100]
+emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) Map.empty [0..100] (mkStdGen 0)
 
 buildObjectJSON :: (JSON a, JSON b) => a -> b -> JSValue
 buildObjectJSON tm cm = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm)]
@@ -36,21 +37,26 @@ start :: Instance GOiD
 start = do
     playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
     s <- get
-    put $ s { getPlayer = playerId }
+    put $ s { getPlayer = playerId
+            {-, getEvents = Map.fromList [ ("attack", [ AttackEvent (1,1)-}
+                                                    {-, AttackEvent (2,2)-}
+                                                    {-])-}
+                                       {-, ("blah", [])]-}
+            }
     return playerId 
 
 update :: Instance ()
 update = do
-    (InstanceState _ tm _ _ _) <- get
+    (InstanceState _ tm _ _ _ _) <- get
     tmErr <- Component.update tm
     case tmErr of
-        (Just err) -> error err
+        (Just err) -> error $ "error when updating transform manager: " ++ err
         otherwise  -> return ()
 
-    (InstanceState _ _ cm _ _) <- get
+    (InstanceState _ _ cm _ _ _) <- get
     cmErr <- Component.update cm
     case cmErr of
-        (Just err) -> error err
+        (Just err) -> error $ "error when updating character manager: " ++ err
         otherwise  -> return ()
 
 createObject :: JSValue -> Instance GOiD
@@ -60,7 +66,7 @@ createObject objData = state $ \s ->
     in (id, s' { availiableIDS = delete id (availiableIDS s') } )
 
 createObjectSpecificID :: GOiD -> JSValue -> Instance ()
-createObjectSpecificID idToMake objData = state $ \s@(InstanceState _ tm cm _ _) ->
+createObjectSpecificID idToMake objData = state $ \s@(InstanceState _ tm cm _ _ _) ->
         let jsonObj = readJSON objData :: Result GameObjectJSON
         in case jsonObj of
             (Ok (GameObjectJSON jsonTm jsonCm)) -> ((), s { getTransformManager = createObjectForManager idToMake jsonTm tm
@@ -74,17 +80,17 @@ createObjectForManager idToMake objData cc =
         (Right cc') -> cc'
         (Left err)  -> error err
 
-pushEvent :: Event -> Instance ()
-pushEvent evt = insertEvent evt $ case evt of
+putEvent :: Event -> Instance String
+putEvent evt = insertEvent evt $ case evt of
         (AttackEvent _) -> eventTypeAttack
-    where insertEvent :: Event -> String -> Instance ()
+    where insertEvent :: Event -> String -> Instance String
           insertEvent evt typ = state $ \s ->
               let evts = getEvents s
                   eventsOfCurrentType = Map.lookup typ evts
                   newEventList = case eventsOfCurrentType of
                       (Just curEvts) -> Map.insert typ (evt : curEvts) evts
                       otherwise      -> Map.insert typ [evt] evts
-                  in ((), s { getEvents = newEventList})
+                  in (show evt, s { getEvents = newEventList})
 
 --
 -- Wrapper functions
@@ -96,6 +102,3 @@ moveObject id newLoc = state $ \s ->
     in case newTm of
         (Right tm') -> ("", s { getTransformManager = tm' })
         (Left err)  -> (err, s)
-
-attackObject :: GOiD -> GOiD -> Instance ()
-attackObject id1 id2 = state $ \s -> ((), s { getCharacterManager = attackComponent (getCharacterManager s) id1 id2 })
