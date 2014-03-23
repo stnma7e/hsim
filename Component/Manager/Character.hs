@@ -43,9 +43,9 @@ instance ComponentCreator CharacterManager where
     update _ = do
         s <- get
         -- lets get a list of all the events we're going to look at
-        let evts = map (flip Map.lookup (getEvents s)) ["attack", "blah", "asg"]
+        let evts = map (`Map.lookup` getEvents s) ["attack", "blah", "asg"]
         -- then filter out all of the either empty lists or nonexistent event types
-        let fevt = filter (not . null) $ [fromJust x | x <- evts, isJust x]
+        let fevt = filter (not . null) [fromJust x | x <- evts, isJust x]
         updateFromEvents $ join fevt
         return Nothing
 
@@ -73,13 +73,13 @@ attackObject id1 id2 hitLoc = state $ \s ->
                   else Miss
         (Just (char2, aif2)) = Map.lookup id2 ids
         (Just rep1) = lookup (faction char1) (rep char1)
-        reputationDiff = if (faction char1) == (faction char2)
+        reputationDiff = if faction char1 == faction char2
                          then -1 
                          else  1
-    in if (health char2) <= 0 || (health char1) <= 0
+    in if health char2 <= 0 || health char1 <= 0
        then (Miss, s)
-       else let ids' = Map.update (\x -> Just (char2 { health = (health char2) - damage1 }, aif2)) id2 ids
-            in (hitMiss, s { getCharacterManager = CharacterManager $ Map.update (\x -> Just (char2 { rep = replace ((faction char1), rep1 + reputationDiff) [] (rep char1) }, aif1)) id1 ids'
+       else let ids' = Map.update (\x -> Just (char2 { health = health char2 - damage1 }, aif2)) id2 ids
+            in (hitMiss, s { getCharacterManager = CharacterManager $ Map.update (\x -> Just (char2 { rep = replace (faction char1, rep1 + reputationDiff) [] (rep char1) }, aif1)) id1 ids'
                       , randomNumGen = newGen })
                 where replace :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
                       replace _ rs [] = rs

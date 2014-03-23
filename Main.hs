@@ -1,12 +1,11 @@
--- Client for the betuol server
--- ----------------------------
-
 module Main where
 
 import Control.Monad.Trans.State       (state, execState, runState, get)
 import qualified Numeric.Matrix as Mat (unit, at, times, fromList)
 import qualified Data.Map as Map       (lookup)
+import System.Random
 import Data.List
+import Data.Maybe
 
 import Instance
 import Event
@@ -17,10 +16,17 @@ import Component.Manager.Character
 import Script
 import Script.Scene1
 
+-- taken from Hackage
+-- package: cgi
+-- module: Network.CGI.Protocol
+maybeRead :: Read a => String -> Maybe a
+maybeRead = fmap fst . listToMaybe . reads
+
 main :: IO ()
 main = do
+    let gen = mkStdGen 1
     let (id, is) = flip runState emptyInstanceState $ do
-        id <- start
+        id <- start gen
         update
         return id
     
@@ -28,7 +34,7 @@ main = do
     return ()
 
 loop :: InstanceState -> [IO (Instance ())] -> IO (Instance ())
-loop is [] = return ()
+loop is [] = return . state $ \s -> ((), s)
 loop is (s:sx) = do
     -- run one scene of our scene script
     scene <- s
@@ -61,11 +67,12 @@ parseInput line = do
         -- takes 1 argument of ID to give object
         "create"  -> if length args < 2
                      then return $ Left "not enough arguments for `create` command"
-                     else do
-                         let n    = read $ args !! 1
-                         let json = buildObjectJSON (TransformComponent Open (Mat.unit 4 )) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
-                         createObjectSpecificID n json
-                         return $ Right com
+                     else case maybeRead $ args !! 1 of
+                              (Just idToMake) -> do
+                                  let json = buildObjectJSON (TransformComponent Open (Mat.unit 4 )) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
+                                  createObjectSpecificID idToMake json
+                                  return $ Right com
+                              otherwise -> return $ Left "invalid id to create"
         -- movement command
         -- takes 1 argument of direction to move
         "m"       -> do
@@ -85,27 +92,30 @@ parseInput line = do
                    else do
                        s <- get
                        err <- moveObject (getPlayer s) (mat `Mat.times` buildTranslationMatrix (4,4) direction)
-                       if not $ null err
-                       then return $ Left err
-                       else return $ Right com
+                       return $ if not $ null err
+                                then Left err
+                                else Right com
         -- attack command
         -- takes 1 argument of ID for player to attack
         "a"       -> if length args < 3
                      then return $ Left "not enough arguments for `a` command"
                      else do
                          s <- get
-                         let n = read $ args !! 1
-                         let loc = read $ args !! 2
-                         attackObject (getPlayer s) n loc
-                         return $ Right com
+                         case maybeRead $ args !! 1 of
+                            (Just idToAttack) -> case maybeRead $ args !! 2 of
+                                (Just loc) -> do
+                                    attackObject (getPlayer s) idToAttack loc
+                                    return $ Right com
+                                otherwise -> return $ Left "cannot read hit location"
+                            otherwise -> return $ Left "cannot read id to attack"
         -- for commands that need to use IO
         -- this block will just let specified commands fall through
         -- to be evaluated in the calling function with access to IO
         otherwise -> do
             s <- get
-            if head args `elem` commands
-            then return $ Right com
-            else return $ Left "not a command"
+            return $ if head args `elem` commands
+                     then Right com
+                     else Left "not a command"
                 where commands :: [String]
                       commands = ["quit", "show", ""]
 

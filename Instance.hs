@@ -1,6 +1,6 @@
 module Instance
-( Instance(..)
-, InstanceState(..)
+( Component.Instance(..)
+, Component.InstanceState(..)
 , emptyInstanceState
 , start
 , Instance.update
@@ -33,8 +33,11 @@ emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (
 buildObjectJSON :: (JSON a, JSON b) => a -> b -> JSValue
 buildObjectJSON tm cm = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm)]
 
-start :: Instance GOiD
-start = do
+start :: StdGen -> Instance GOiD
+start gen = do
+    s <- get
+    put $ s { randomNumGen = gen }
+
     playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
     s <- get
     put $ s { getPlayer = playerId
