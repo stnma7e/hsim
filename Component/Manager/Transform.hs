@@ -1,5 +1,7 @@
 module Component.Manager.Transform
 ( moveObject
+, getExits
+, getObjectLoc
 ) where
 
 import Control.Monad.Trans.State (state, get, put)
@@ -81,7 +83,7 @@ getGridXY m = let x = m `Mat.at` (1, 4)
 
 moveObject :: GOiD -> Mat.Matrix Float -> Instance (Maybe String)
 moveObject  goid newLoc = do
-    s@(InstanceState _ (TransformManager mats grid) _ _ _ _) <- get
+    s@(InstanceState _ tm@(TransformManager mats grid) _ _ _ _) <- get
     let obj = Map.lookup goid mats
     case obj of
         (Just (TransformComponent typ _)) ->
@@ -89,9 +91,9 @@ moveObject  goid newLoc = do
                 loc = getGridXY newLoc
             in case tc of
                 (Just (TransformComponent typ mat)) ->
-                    let collisionId = checkCollision loc mats grid
-                    in if collisionId > 0
-                       then return . Just $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD " ++ show collisionId ++ "."
+                    let collisionIds = checkCollision loc tm
+                    in if not $ null collisionIds 
+                       then return . Just $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD's " ++ show collisionIds ++ "."
                        else let oldLoc = getGridXY mat
                                 gridWithOldDeleted = updateGrid goid oldLoc Delete grid
                                 grid'  = updateGrid goid loc Insert gridWithOldDeleted
@@ -101,12 +103,37 @@ moveObject  goid newLoc = do
                 otherwise -> return . Just $ "no matrix for component when moving; GOiD: " ++ show goid
         otherwise -> return . Just $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
 
-checkCollision :: (Int, Int) -> ComponentMap -> Grid -> GOiD 
-checkCollision loc mats grid =
+checkCollision :: (Int, Int) -> TransformManager -> [GOiD] 
+checkCollision loc (TransformManager mats grid) =
     let ids = Map.lookup loc grid
     in case ids of
-        (Just ids') -> foldr checkBlocked (-1) (Map.toList $ Map.filterWithKey (\x _ -> x `elem` ids') mats)
-                           where checkBlocked :: (GOiD, TransformComponent) -> GOiD -> GOiD
-                                 checkBlocked (goid, TransformComponent Blocked _) _ = goid
+        (Just ids') -> foldr checkBlocked [] (Map.toList $ Map.filterWithKey (\x _ -> x `elem` ids') mats)
+                           where checkBlocked :: (GOiD, TransformComponent) -> [GOiD] -> [GOiD]
+                                 checkBlocked (goid, TransformComponent Blocked _) acc = goid : acc
                                  checkBlocked (_,    TransformComponent Open _)  acc = acc
-        otherwise -> -1
+        otherwise -> []
+
+getObjectLoc :: GOiD -> TransformManager ->  (Int, Int)
+getObjectLoc id (TransformManager mats _) = let (Just comp) = Map.lookup id mats
+                                      in getGridXY (getMatrix comp)
+
+data Direction = North | South | East | West
+               | NWest | SWest
+               | NEast | SEast
+                 deriving (Show, Read)
+
+getExits :: (Int, Int) -> TransformManager -> [Direction]
+getExits (x,y) tm =
+    let n = if null $ checkCollision (x + 1, y) tm
+            then [North]
+            else []
+        s = if null $ checkCollision (x - 1, y) tm
+            then [South]
+            else []
+        e = if null $ checkCollision (x, y + 1) tm
+            then [East]
+            else []
+        w = if null $ checkCollision (x, y - 1) tm
+            then [West]
+            else []
+    in n++s++e++w

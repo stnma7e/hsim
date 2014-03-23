@@ -49,6 +49,8 @@ loop is (s:sx) = do
             case ret of
                 (Left err)      -> print err
                 (Right "show")  -> print is'
+                (Right "look")  -> let tm = getTransformManager is'
+                                   in print $ getExits (getObjectLoc (getPlayer is') tm) tm
                 (Right "m")     -> let (TransformManager mats _) = getTransformManager is'
                                        (Just (TransformComponent objType mat)) = Map.lookup (getPlayer is') mats
                                    in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
@@ -82,10 +84,10 @@ parseInput line = do
             else let (TransformManager mats _) = getTransformManager s
                      (Just (TransformComponent objType mat)) = Map.lookup (getPlayer s) mats
                      direction = case args !! 1 of
-                         "n" -> [ 0, 0, 1]
-                         "s" -> [ 0, 0,-1]
-                         "e" -> [ 1, 0, 0]
-                         "w" -> [-1, 0, 0]
+                         "n" -> [ 1,  0,  0]
+                         "s" -> [-1,  0,  0]
+                         "e" -> [ 0,  0,  1]
+                         "w" -> [ 0,  0, -1]
                          otherwise -> []
                 in if null direction
                    then return . Left $ "`" ++ args !! 1 ++ "` is not a valid direction."
@@ -117,4 +119,4 @@ parseInput line = do
                      then Right com
                      else Left "not a command"
                 where commands :: [String]
-                      commands = ["quit", "show", ""]
+                      commands = ["quit", "show", "look", ""]

@@ -71,7 +71,10 @@ data InstanceState = InstanceState
 
 data ObjectType = Blocked | Open
                   deriving (Show , Read)
-data TransformComponent = TransformComponent ObjectType (Mat.Matrix Float)
+data TransformComponent = TransformComponent
+    { objType   :: ObjectType
+    , getMatrix :: Mat.Matrix Float
+    }
                           deriving Show
 type ComponentMap = Map.Map GOiD TransformComponent
 type Grid = Map.Map (Int, Int) [GOiD]
