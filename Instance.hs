@@ -7,8 +7,6 @@ module Instance
 , createObject
 , createObjectSpecificID
 , pushEvent
-
-, buildObjectJSON
 ) where 
 
 import Control.Monad.Trans.State       (state, get, put, execState)
@@ -28,9 +26,6 @@ import Component.Manager.Character
 
 emptyInstanceState :: InstanceState
 emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) Map.empty [0..100] (mkStdGen 0)
-
-buildObjectJSON :: (JSON a, JSON b) => a -> b -> JSValue
-buildObjectJSON tm cm = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm)]
 
 start :: StdGen -> Instance GOiD
 start gen = do

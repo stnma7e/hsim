@@ -118,28 +118,3 @@ parseInput line = do
                      else Left "not a command"
                 where commands :: [String]
                       commands = ["quit", "show", ""]
-
-reactEvent :: EventDescriptor -> Instance String
-reactEvent evt@(EventDescriptor typ evtData) =
-    case getEvent evt of
-        ae@(AttackEvent (id1, id2)) -> pushEvent ae
-        ce@(CharacterMovedEvent id loc) -> do
-            pushEvent ce
-            s <- get
-            let (TransformManager mats _) = getTransformManager s
-            let mat = Map.lookup id mats
-            let mat' = case mat of
-                    (Just (TransformComponent objType mat'')) -> mat''
-                    -- if we don't already have any information for this object, then make a new one and update it
-                    -- will need to poll the server for data on this object since we don't have it yet
-                    -- type information, etc.
-                    Nothing -> let json = buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
-                                   newId = execState (createObjectSpecificID id json) s
-                                   (TransformManager mats _) = getTransformManager s
-                                   (Just (TransformComponent objType mat'')) = Map.lookup id mats
-                               in mat''
-            err <- moveObject id (mat' `Mat.times` Mat.fromList [loc])
-            return $ case err of
-                (Just err') -> err'
-                otherwise   -> show ce
-        otherwise -> error $ "unsupported event type: " ++ typ ++ "\n\t data: " ++ show evtData

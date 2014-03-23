@@ -44,11 +44,22 @@ instance ComponentCreator TransformManager where
         updateFromEvents evts
         return Nothing
 
-updateFromEvents :: [Event] -> Instance ()
-updateFromEvents [] = return ()
+updateFromEvents :: [Event] -> Instance (Maybe String)
+updateFromEvents [] = return Nothing
 updateFromEvents (evt:evts) = do
     case evt of
-        otherwise -> return ()
+        (CharacterMovedEvent id loc) -> do
+            s <- get
+            let (TransformManager mats _) = getTransformManager s
+            let mat = Map.lookup id mats
+            mat' <- case mat of
+                    (Just (TransformComponent objType mat'')) -> return mat''
+                    -- if we don't already have any information for this object, then make a new one and update it
+                    -- will need to poll the server for data on this object since we don't have it yet
+                    -- type information, etc.
+                    Nothing -> return $ Mat.unit 4
+            moveObject id (mat' `Mat.times` Mat.fromList [loc])
+        otherwise -> return Nothing
     updateFromEvents evts 
 
 data UpdateType = Insert | Delete

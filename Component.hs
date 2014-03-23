@@ -48,6 +48,9 @@ getEventsFromInstance eventsToLookFor = do
         -- then filter out all of the either empty lists or nonexistent event types
         return . join $ filter (not . null) [fromJust x | x <- evts, isJust x]
 
+buildObjectJSON :: (JSON a, JSON b) => a -> b -> JSValue
+buildObjectJSON tm cm = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm)]
+
 type Instance = State InstanceState
 data InstanceState = InstanceState
     { getPlayer           :: GOiD
