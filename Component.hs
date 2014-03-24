@@ -26,18 +26,15 @@ data Event = AttackEvent (GOiD, GOiD)
 data GameObjectJSON = GameObjectJSON
     { transform :: JSValue
     , character :: JSValue
+    , ai        :: JSValue
     }
-
 instance JSON GameObjectJSON where
     showJSON = undefined
-    readJSON (JSObject obj) = 
-        let tm = obj ! "Transform" :: Result JSValue
-            cm = obj ! "Character" :: Result JSValue
-        in case tm of
-            (Ok tm') -> return $ case cm of
-                (Ok cm')    -> GameObjectJSON tm' cm' 
-                (Error err) -> error $ "unable to determine `Character` from JSON component " ++ err
-            (Error err) -> error $ "unable to determine `Transform` from JSON component " ++ err
+    readJSON (JSObject obj) = do
+        tm <- obj ! "Transform" :: Result JSValue
+        cm <- obj ! "Character" :: Result JSValue
+        am <- obj ! "Ai"        :: Result JSValue
+        return $ GameObjectJSON tm cm am
     readJSON _ = mzero
 
 getEventsFromInstance :: [String] -> Instance [Event]
@@ -48,17 +45,18 @@ getEventsFromInstance eventsToLookFor = do
         -- then filter out all of the either empty lists or nonexistent event types
         return . join $ filter (not . null) [fromJust x | x <- evts, isJust x]
 
-buildObjectJSON :: (JSON a, JSON b) => a -> b -> JSValue
-buildObjectJSON tm cm = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm)]
+buildObjectJSON :: (JSON a, JSON b, JSON c) => a -> b -> c -> JSValue
+buildObjectJSON tm cm am = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm), ("Ai", showJSON am)]
 
 type Instance = State InstanceState
 data InstanceState = InstanceState
-    { getPlayer           :: GOiD
-    , getTransformManager :: TransformManager
-    , getCharacterManager :: CharacterManager
-    , getEvents           :: Map.Map String [Event]
-    , availiableIDS       :: [GOiD]
-    , randomNumGen        :: StdGen
+    { player           :: GOiD
+    , transformManager :: TransformManager
+    , characterManager :: CharacterManager
+    , aiManager        :: AiManager
+    , getEvents        :: Map.Map String [Event]
+    , availiableIDS    :: [GOiD]
+    , randomNumGen     :: StdGen
     } deriving Show
 
 -------------------------------------
@@ -99,7 +97,15 @@ data CharacterComponent = CharacterComponent
     , faction :: Faction
     , rep     :: [Reputation]
     } deriving Show
+newtype CharacterManager = CharacterManager (Map.Map GOiD CharacterComponent)
+                           deriving Show
 
-type AiFunction = GOiD -> CharacterManager -> CharacterManager
-data CharacterManager = CharacterManager (Map.Map GOiD (CharacterComponent, AiFunction))
-                        deriving Show
+--
+-- AI
+--
+
+data AiComponent = Enemy | Passive
+                   deriving (Show, Read)
+type AiComputer = GOiD -> Instance ()
+newtype AiManager = AiManager (Map.Map GOiD AiComputer)
+                    deriving Show

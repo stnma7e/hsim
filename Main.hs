@@ -13,6 +13,7 @@ import Math
 import Component hiding (update)
 import Component.Manager.Transform
 import Component.Manager.Character
+import Component.Manager.Ai
 import Script
 import Script.Scene1
 
@@ -41,82 +42,83 @@ loop is (s:sx) = do
     let scene' = execState scene is
 
     -- then parse commands and junk like normal
-    com <- getLine
-    let (ret, is') = runState (parseInput com) scene'
-    case ret of 
-        (Right "quit") -> return . state $ const ((), is)
-        otherwise -> do
-            case ret of
-                (Left err)      -> print err
-                (Right "show")  -> print is'
-                (Right "look")  -> let tm = getTransformManager is'
-                                   in print $ getExits (getObjectLoc (getPlayer is') tm) tm
-                (Right "m")     -> let (TransformManager mats _) = getTransformManager is'
-                                       (Just (TransformComponent objType mat)) = Map.lookup (getPlayer is') mats
-                                   in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
-                otherwise       -> return ()
-
-            loop (execState update is') sx
-
-parseInput :: String -> Instance (Either String String)
-parseInput line = do
+    line <- getLine
     let args = words line
     if null args
-    then return $ Right ""
-    else let com = head args
-        in case com of
-        -- creates an object on the client
-        -- takes 1 argument of ID to give object
-        "create"  -> if length args < 2
-                     then return $ Left "not enough arguments for `create` command"
-                     else case maybeRead $ args !! 1 of
-                              (Just idToMake) -> do
-                                  let json = buildObjectJSON (TransformComponent Open (Mat.unit 4 )) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
+    then loop scene' sx
+    else do
+        let (ret, is') = runState (parseInput (head args) (tail args)) scene'
+        case ret of 
+            (Right "quit") -> return . state $ const ((), is)
+            otherwise -> do
+                case ret of
+                    (Left err)      -> print err
+                    (Right "show")  -> print is'
+                    (Right "look")  -> let tm = transformManager is'
+                                       in print $ getExits (getObjectLoc (player is') tm) tm
+                    (Right "m")     -> let (TransformManager mats _) = transformManager is'
+                                           (Just (TransformComponent objType mat)) = Map.lookup (player is') mats
+                                       in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
+                    otherwise       -> return ()
+
+                loop (execState update is') sx
+
+parseInput :: String -> [String] -> Instance (Either String String)
+parseInput com args = case com of
+    -- creates an object on the client
+    -- takes 1 argument of ID to give object
+    "create"  -> if length args < 2
+                 then return $ Left "not enough arguments for `create` command"
+                 else case maybeRead $ args !! 0 of
+                          (Just idToMake) -> case maybeRead $ args !! 1 :: Maybe AiComponent of 
+                              (Just computerType) -> do
+                                  let json = buildObjectJSON (TransformComponent Open (Mat.unit 4 )) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)]) computerType
                                   createObjectSpecificID idToMake json
                                   return $ Right com
-                              otherwise -> return $ Left "invalid id to create"
-        -- movement command
-        -- takes 1 argument of direction to move
-        "m"       -> do
-            s <- get
-            if length args < 2
-            then return $ Left "not enough arguments for `m` command"
-            else let (TransformManager mats _) = getTransformManager s
-                     (Just (TransformComponent objType mat)) = Map.lookup (getPlayer s) mats
-                     direction = case args !! 1 of
-                         "n" -> [ 1,  0,  0]
-                         "s" -> [-1,  0,  0]
-                         "e" -> [ 0,  0,  1]
-                         "w" -> [ 0,  0, -1]
-                         otherwise -> []
-                in if null direction
-                   then return . Left $ "`" ++ args !! 1 ++ "` is not a valid direction."
-                   else do
-                       s <- get
-                       err <- moveObject (getPlayer s) (mat `Mat.times` buildTranslationMatrix (4,4) direction)
-                       return $ case err of
-                           (Just err') -> Left err'
-                           otherwise   -> Right com
-        -- attack command
-        -- takes 1 argument of ID for player to attack
-        "a"       -> if length args < 3
-                     then return $ Left "not enough arguments for `a` command"
-                     else do
-                         s <- get
-                         case maybeRead $ args !! 1 of
-                            (Just idToAttack) -> case maybeRead $ args !! 2 of
-                                (Just loc) -> do
-                                    attackObject (getPlayer s) idToAttack loc
-                                    return $ Right com
-                                otherwise -> return $ Left "cannot read hit location"
-                            otherwise -> return $ Left "cannot read id to attack"
-        -- for commands that need to use IO
-        -- this block will just let specified commands fall through
-        -- to be evaluated in the calling function with access to IO
-        otherwise -> do
-            s <- get
-            return $ if head args `elem` commands
-                     then Right com
-                     else Left "not a command"
-                where commands :: [String]
-                      commands = ["quit", "show", "look", ""]
+                              otherwise -> return $ Left "invalid ai type"
+                          otherwise -> return $ Left "invalid id to create"
+    -- movement command
+    -- takes 1 argument of direction to move
+    "m"       -> do
+        s <- get
+        if length args < 1
+        then return $ Left "not enough arguments for `m` command"
+        else let (TransformManager mats _) = transformManager s
+                 (Just (TransformComponent objType mat)) = Map.lookup (player s) mats
+                 direction = case args !! 0 of
+                     "n" -> [ 1,  0,  0]
+                     "s" -> [-1,  0,  0]
+                     "e" -> [ 0,  0,  1]
+                     "w" -> [ 0,  0, -1]
+                     otherwise -> []
+            in if null direction
+               then return . Left $ "`" ++ args !! 0 ++ "` is not a valid direction."
+               else do
+                   s <- get
+                   err <- moveObject (player s) (mat `Mat.times` buildTranslationMatrix (4,4) direction)
+                   return $ case err of
+                       (Just err') -> Left err'
+                       otherwise   -> Right com
+    -- attack command
+    -- takes 1 argument of ID for player to attack
+    "a"       -> if length args < 2
+                 then return $ Left "not enough arguments for `a` command"
+                 else do
+                     s <- get
+                     case maybeRead $ args !! 0 of
+                        (Just idToAttack) -> case maybeRead $ args !! 1 of
+                            (Just loc) -> do
+                                attackObject (player s) idToAttack loc
+                                return $ Right com
+                            otherwise -> return $ Left "cannot read hit location"
+                        otherwise -> return $ Left "cannot read id to attack"
+    -- for commands that need to use IO
+    -- this block will just let specified commands fall through
+    -- to be evaluated in the calling function with access to IO
+    otherwise -> do
+        s <- get
+        return $ if com `elem` commands
+                 then Right com
+                 else Left "not a command"
+            where commands :: [String]
+                  commands = ["quit", "show", "look", ""]

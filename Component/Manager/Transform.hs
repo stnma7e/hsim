@@ -40,7 +40,7 @@ instance ComponentCreator TransformManager where
             (Ok tc'@(TransformComponent _ mat)) -> let loc     = getGridXY mat
                                                        newGrid = updateGrid id loc Insert grid
                                                    in Right $ TransformManager (Map.insert id tc' mats) newGrid
-            (Error err) -> error $ "creating transform component " ++ err
+            (Error err) -> error $ "creating transform component: " ++ err
     update _ = do
         evts <- getEventsFromInstance ["characterMoved"]
         updateFromEvents evts
@@ -52,7 +52,7 @@ updateFromEvents (evt:evts) = do
     case evt of
         (CharacterMovedEvent id loc) -> do
             s <- get
-            let (TransformManager mats _) = getTransformManager s
+            let (TransformManager mats _) = transformManager s
             let mat = Map.lookup id mats
             mat' <- case mat of
                     (Just (TransformComponent objType mat'')) -> return mat''
@@ -83,7 +83,7 @@ getGridXY m = let x = m `Mat.at` (1, 4)
 
 moveObject :: GOiD -> Mat.Matrix Float -> Instance (Maybe String)
 moveObject  goid newLoc = do
-    s@(InstanceState _ tm@(TransformManager mats grid) _ _ _ _) <- get
+    s@(InstanceState _ tm@(TransformManager mats grid) _ _ _ _ _) <- get
     let obj = Map.lookup goid mats
     case obj of
         (Just (TransformComponent typ _)) ->
@@ -98,7 +98,7 @@ moveObject  goid newLoc = do
                                 gridWithOldDeleted = updateGrid goid oldLoc Delete grid
                                 grid'  = updateGrid goid loc Insert gridWithOldDeleted
                             in do
-                                put $ s { getTransformManager = TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid' }
+                                put $ s { transformManager = TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid' }
                                 return Nothing
                 otherwise -> return . Just $ "no matrix for component when moving; GOiD: " ++ show goid
         otherwise -> return . Just $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
