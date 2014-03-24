@@ -4,10 +4,12 @@ module Component.Manager.Ai
 
 import Text.JSON
 import Control.Monad
-import Control.Monad.Trans.State (state, get)
+import Control.Monad.Trans.State (state, get, put)
 import Control.Applicative
 import qualified Data.Map as Map
 
+import Component.Manager.Transform
+import Component.Manager.Character
 import Component
 import Common
 
@@ -29,7 +31,7 @@ instance ComponentCreator AiManager where
     update _ = do
         s <- get
         let (AiManager comps) = aiManager s
-        return $ map (runAiComputers (Map.elems comps)) (Map.keys comps)
+        foldr (\is acc -> acc >>= const is) (return ()) $ map (runAiComputers (Map.elems comps)) (Map.keys comps)
         return Nothing
 
 runAiComputers :: [AiComputer] -> GOiD -> Instance ()
@@ -46,4 +48,22 @@ getComputerFromJSON computerType = case computerType of
     otherwise -> enemyComputer
     
 enemyComputer :: AiComputer
-enemyComputer _ = return ()
+enemyComputer thisId = do
+    s <- get
+    let tm = transformManager s
+        cm = characterManager s
+    let closeObjects = filter (isCharacter cm) . map fst $ getObjectsAt (getObjectLoc thisId tm) tm
+    foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects (\idOfNearby ->
+        if (not $ isCharacter cm idOfNearby) || thisId == idOfNearby
+        then return ()
+        else do
+            let char1 = getCharacter cm idOfNearby
+                (Just thisChar) = getCharacter cm thisId
+            case char1 of
+                Nothing       -> return ()
+                (Just char1') -> if (health char1') <= (health thisChar)
+                                 then do
+                                     attackObject thisId idOfNearby Torso
+                                     return ()
+                                 else return ())
+    return ()

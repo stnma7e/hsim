@@ -1,5 +1,7 @@
 module Component.Manager.Character
 ( attackObject
+, isCharacter
+, getCharacter
 ) where
 
 import Control.Monad.Trans.State (state, get)
@@ -53,15 +55,21 @@ updateFromEvents (evt:evts) = do
         otherwise -> return ()
     updateFromEvents evts
 
+isCharacter :: CharacterManager -> GOiD -> Bool
+isCharacter (CharacterManager ids) = flip Map.member ids
+
+getCharacter :: CharacterManager -> GOiD -> Maybe CharacterComponent
+getCharacter (CharacterManager ids) = flip Map.lookup ids
+
 attackObject :: GOiD -> GOiD -> HitLocation -> Instance AttackType
 attackObject id1 id2 hitLoc = state $ \s ->
     let (rnd, newGen) = randomR (1, 100) $ randomNumGen s :: (Int, StdGen)
         cm@(CharacterManager ids) = characterManager s
         (Just char1) = Map.lookup id1 ids
         damage1 = case hitLoc of
-            Head  -> if rnd > 10 then 0 else 15
-            Torso -> if rnd > 90 then 0 else 7
-            Legs  -> if rnd > 70 then 0 else 10
+            Head  -> if rnd > 10 then 0 else (damage char1 * 2.0)
+            Torso -> if rnd > 90 then 0 else (damage char1)
+            Legs  -> if rnd > 70 then 0 else (damage char1 * 1.5)
         hitMiss = if damage1 > 0
                   then Hit damage1
                   else Miss
