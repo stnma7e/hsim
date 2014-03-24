@@ -43,8 +43,8 @@ start gen = do
             }
     return playerId 
 
-update :: Instance ()
-update = do
+update :: (Instance String) -> Instance String
+update postUpdateFunctionCall = do
     (InstanceState _ tm _ _ _ _ _) <- get
     tmErr <- Component.update tm
     case tmErr of
@@ -62,6 +62,8 @@ update = do
     case amErr of
         (Just err) -> error $ "error when updating ai manager: " ++ err
         otherwise  -> return ()
+
+    postUpdateFunctionCall 
 
 createObject :: JSValue -> Instance GOiD
 createObject objData = state $ \s -> 

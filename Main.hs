@@ -1,8 +1,8 @@
 module Main where
 
-import Control.Monad.Trans.State       (state, execState, runState, get)
-import qualified Numeric.Matrix as Mat (unit, at, times, fromList)
-import qualified Data.Map as Map       (lookup)
+import Control.Monad.Trans.State       (state, execState, runState, get, put)
+import qualified Numeric.Matrix as Mat
+import qualified Data.Map as Map
 import System.Random
 import Data.List
 import Data.Maybe
@@ -28,7 +28,7 @@ main = do
     let gen = mkStdGen 1
     let (id, is) = flip runState emptyInstanceState $ do
         id <- start gen
-        update
+        update (return "")
         return id
     
     loop is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
@@ -61,7 +61,15 @@ loop is (s:sx) = do
                                        in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
                     otherwise       -> return ()
 
-                loop (execState update is') sx
+                let (output, is'') = runState (update postUpdateInstanceOutput) is'
+                putStrLn output
+                loop is'' sx
+                    where postUpdateInstanceOutput :: Instance [Events]
+                          postUpdateInstanceOutput = do
+                              s <- get
+                              let evts = getEvents s
+                              put $ s { getEvents = Map.empty }
+                              return $ "events from last frame: " ++ show evts
 
 parseInput :: String -> [String] -> Instance (Either String String)
 parseInput com args = case com of
