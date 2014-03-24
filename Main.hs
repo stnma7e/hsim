@@ -26,9 +26,9 @@ maybeRead = fmap fst . listToMaybe . reads
 main :: IO ()
 main = do
     let gen = mkStdGen 1
-    let (id, is) = flip runState emptyInstanceState $ do
+        (id, is) = flip runState emptyInstanceState $ do
         id <- start gen
-        update (return "")
+        update
         return id
     
     loop is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
@@ -61,15 +61,11 @@ loop is (s:sx) = do
                                        in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
                     otherwise       -> return ()
 
-                let (output, is'') = runState (update postUpdateInstanceOutput) is'
-                putStrLn output
+                -- let's get a list of the events from the last frame
+                -- then we can use this information to display character deaths, etc.
+                let (eventsFromLastFrame, is'') = runState update is'
+                putStrLn $ "events from last frame: " ++ show eventsFromLastFrame
                 loop is'' sx
-                    where postUpdateInstanceOutput :: Instance [Events]
-                          postUpdateInstanceOutput = do
-                              s <- get
-                              let evts = getEvents s
-                              put $ s { getEvents = Map.empty }
-                              return $ "events from last frame: " ++ show evts
 
 parseInput :: String -> [String] -> Instance (Either String String)
 parseInput com args = case com of
