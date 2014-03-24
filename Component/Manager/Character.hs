@@ -4,7 +4,7 @@ module Component.Manager.Character
 , getCharacter
 ) where
 
-import Control.Monad.Trans.State (state, get)
+import Control.Monad.Trans.State (state, get, put)
 import qualified Data.Map as Map
 import Text.JSON
 import Control.Monad
@@ -62,29 +62,42 @@ getCharacter :: CharacterManager -> GOiD -> Maybe CharacterComponent
 getCharacter (CharacterManager ids) = flip Map.lookup ids
 
 attackObject :: GOiD -> GOiD -> HitLocation -> Instance AttackType
-attackObject id1 id2 hitLoc = state $ \s ->
+attackObject id1 id2 hitLoc = do
+    s <- get
     let (rnd, newGen) = randomR (1, 100) $ randomNumGen s :: (Int, StdGen)
         cm@(CharacterManager ids) = characterManager s
         (Just char1) = Map.lookup id1 ids
-        damage1 = case hitLoc of
+        damageDealt1 = case hitLoc of
             Head  -> if rnd > 10 then 0 else (damage char1 * 2.0)
             Torso -> if rnd > 90 then 0 else (damage char1)
             Legs  -> if rnd > 70 then 0 else (damage char1 * 1.5)
-        hitMiss = if damage1 > 0
-                  then Hit damage1
+        hitMiss = if damageDealt1 > 0
+                  then Hit damageDealt1
                   else Miss
         (Just char2) = Map.lookup id2 ids
         (Just rep1) = lookup (faction char1) (rep char1)
         reputationDiff = if faction char1 == faction char2
                          then -1 
                          else  1
-    in if health char2 <= 0 || health char1 <= 0
-       then (Miss, s)
-       else let ids' = Map.update (\x -> Just char2 { health = health char2 - damage1 }) id2 ids
-            in (hitMiss, s { characterManager = CharacterManager $ Map.update (\x -> Just char2 { rep = replace (faction char1, rep1 + reputationDiff) [] (rep char1) }) id1 ids'
-                      , randomNumGen = newGen })
-                where replace :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
-                      replace _ rs [] = rs
-                      replace f@(fac, _) rs (f'@(fac', rep):fx) = if fac' == fac
-                                                  then f:fx
-                                                  else replace f (rs ++ [f']) fx
+    if health char2 <= 0 || health char1 <= 0
+    then return Miss
+    else do
+        let newCharacterHealth = health char2 - damageDealt1
+            ids' = Map.update (\x -> Just char2 { health = newCharacterHealth }) id2 ids
+
+        if newCharacterHealth <= 0
+        then do
+            pushEvent $ DeathEvent id1 id2
+            return ()
+        else return ()
+
+        s' <- get
+        put $ s' { characterManager = CharacterManager $ Map.update (\x -> Just char2 { rep = replace (faction char1, rep1 + reputationDiff) (rep char1) [] } ) id1 ids'
+                 , randomNumGen = newGen }
+        return hitMiss
+
+             where replace :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
+                   replace _ [] rs = rs
+                   replace f@(fac, _) (f'@(fac', rep):fx) rs = if fac' == fac
+                                                               then f:fx
+                                                               else replace f fx (rs ++ [f'])

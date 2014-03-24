@@ -16,10 +16,6 @@ import Text.JSON
 import Common
 import Component
 
-eventTypeAttack                   = "attack"
-eventTypeCharacterMoved           = "characterMoved"
-eventTypeRequestCharacterCreation = "requestCharacterCreation"
-
 jsonTypeField  = "Type"
 jsonEventField = "Event"
 
@@ -37,6 +33,8 @@ instance JSON Event where
         buildEventJSON eventTypeRequestCharacterCreation [("Type", showJSON charType), ("Location", showJSON loc)]
     showJSON (CharacterMovedEvent char loc) =
         buildEventJSON eventTypeCharacterMoved [("CharID", showJSON char), ("NewLocation", showJSON loc)]
+    showJSON (DeathEvent char loc) =
+        buildEventJSON eventTypeCharacterMoved [("KilledBy", showJSON char), ("Dead", showJSON loc)]
 
 instance JSONEvent Event where
     getEvent (EventDescriptor eventType event) 
@@ -49,12 +47,16 @@ instance JSONEvent Event where
             case readJSON event of
                 (Ok (JSObject obj)) -> let (Ok goid) = obj ! "Type"
                                            (Ok loc)  = obj ! "Location"
-                                       in RequestCharacterCreationEvent goid loc
-        | eventType == eventTypeCharacterMoved =
+                                       in RequestCharacterCreationEvent goid loc | eventType == eventTypeCharacterMoved =
             case readJSON event of
                 (Ok (JSObject obj)) -> let (Ok goid) = obj ! "CharID"
                                            (Ok loc)  = obj ! "NewLocation"
                                        in CharacterMovedEvent goid loc
+        | eventType == eventTypeDeath =
+            case readJSON event of
+                (Ok (JSObject obj)) -> let (Ok dead)     = obj ! "Dead"
+                                           (Ok killedBy) = obj ! "KilledBy"
+                                       in DeathEvent killedBy dead
              
 data EventDescriptor = EventDescriptor
     { eventType :: String

@@ -12,6 +12,11 @@ import Data.Maybe
 
 import Common
 
+eventTypeAttack                   = "attack"
+eventTypeDeath                    = "death"
+eventTypeCharacterMoved           = "characterMoved"
+eventTypeRequestCharacterCreation = "requestCharacterCreation"
+
 type GOiD = Int
 
 class ComponentCreator a where
@@ -19,6 +24,7 @@ class ComponentCreator a where
 	update :: a -> Instance (Maybe String)
 
 data Event = AttackEvent (GOiD, GOiD)
+           | DeathEvent GOiD GOiD
            | CharacterMovedEvent GOiD [Float]
            | RequestCharacterCreationEvent String [Float]
              deriving Show
@@ -47,6 +53,19 @@ getEventsFromInstance eventsToLookFor = do
 
 buildObjectJSON :: (JSON a, JSON b, JSON c) => a -> b -> c -> JSValue
 buildObjectJSON tm cm am = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm), ("Ai", showJSON am)]
+
+pushEvent :: Event -> Instance String
+pushEvent evt = insertEvent evt $ case evt of
+        (AttackEvent _)  -> eventTypeAttack
+        (DeathEvent _ _) -> eventTypeDeath
+    where insertEvent :: Event -> String -> Instance String
+          insertEvent evt typ = state $ \s ->
+              let evts = getEvents s
+                  eventsOfCurrentType = Map.lookup typ evts
+                  newEventList = case eventsOfCurrentType of
+                      (Just curEvts) -> Map.insert typ (evt : curEvts) evts
+                      otherwise      -> Map.insert typ [evt] evts
+              in (show evt, s { getEvents = newEventList})
 
 type Instance = State InstanceState
 data InstanceState = InstanceState
