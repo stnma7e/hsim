@@ -48,11 +48,14 @@ getEventsFromInstance eventsToLookFor = do
         s <- get
         -- lets get a list of all the events we're going to look at
         let evts = map (`Map.lookup` getEvents s) eventsToLookFor
-        -- then filter out all of the either empty lists or nonexistent event types
+        -- then filter out all of the either empty lists or nonexistent event types (a.k.a values constructed with Nothing)
         return . join $ filter (not . null) [fromJust x | x <- evts, isJust x]
 
 buildObjectJSON :: (JSON a, JSON b, JSON c) => a -> b -> c -> JSValue
-buildObjectJSON tm cm am = showJSON $ makeObj [("Transform", showJSON tm), ("Character", showJSON cm), ("Ai", showJSON am)]
+buildObjectJSON tm cm am = showJSON $ makeObj [ ("Transform", showJSON tm)
+                                              , ("Character", showJSON cm)
+                                              , ("Ai", showJSON am)
+                                              ]
 
 pushEvent :: Event -> Instance String
 pushEvent evt = insertEvent evt $ case evt of

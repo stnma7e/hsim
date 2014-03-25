@@ -37,7 +37,6 @@ instance ComponentCreator AiManager where
 runAiComputers :: [AiComputer] -> GOiD -> Instance ()
 runAiComputers [] _ = return ()
 runAiComputers (ac:acs) goid = do
-    s <- get
     ac goid
     runAiComputers acs goid
     
@@ -45,8 +44,11 @@ runAiComputers (ac:acs) goid = do
 getComputerFromJSON :: AiComponent -> AiComputer
 getComputerFromJSON computerType = case computerType of
     Enemy     -> enemyComputer
-    otherwise -> enemyComputer
+    Passive   -> passiveComputer
     
+passiveComputer :: AiComputer
+passiveComputer _ = return ()
+
 enemyComputer :: AiComputer
 enemyComputer thisId = do
     s <- get
@@ -54,6 +56,8 @@ enemyComputer thisId = do
         cm = characterManager s
     let closeObjects = filter (isCharacter cm) . map fst $ getObjectsAt (getObjectLoc thisId tm) tm
     foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects (\idOfNearby ->
+    -- end boilerplate
+    -- begin ai computation
         if (not $ isCharacter cm idOfNearby) || thisId == idOfNearby
         then return ()
         else do

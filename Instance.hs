@@ -35,12 +35,7 @@ start gen = do
 
     playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)]) Enemy
     s <- get
-    put $ s { player = playerId
-            {-, getEvents = Map.fromList [ ("attack", [ AttackEvent (1,1)-}
-                                                    {-, AttackEvent (2,2)-}
-                                                    {-])-}
-                                       {-, ("blah", [])]-}
-            }
+    put $ s { player = playerId }
     return playerId 
 
 update :: Instance (Map.Map String [Event])
