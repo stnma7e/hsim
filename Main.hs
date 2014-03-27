@@ -63,8 +63,9 @@ loop is (s:sx) = do
 
                 -- let's get a list of the events from the last frame
                 -- then we can use this information to display character deaths, etc.
-                let (eventsFromLastFrame, is'') = runState update is'
+                let ((eventsFromLastFrame, eventsForNextFrame), is'') = runState update is'
                 putStrLn $ "events from last frame: " ++ show eventsFromLastFrame
+                putStrLn $ "events for next frame: "  ++ show eventsForNextFrame
                 loop is'' sx
 
 parseInput :: String -> [String] -> Instance (Either String String)

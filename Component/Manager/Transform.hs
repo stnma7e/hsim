@@ -44,6 +44,7 @@ instance ComponentCreator TransformManager where
                                                        newGrid = updateGrid id loc Insert grid
                                                    in Right $ TransformManager (Map.insert id tc' mats) newGrid
             (Error err) -> error $ "creating transform component: " ++ err
+
     update _ = do
         evts <- getEventsFromInstance ["characterMoved"]
         updateFromEvents evts

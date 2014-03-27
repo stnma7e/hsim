@@ -26,7 +26,7 @@ import Component.Manager.Character
 import Component.Manager.Ai
 
 emptyInstanceState :: InstanceState
-emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) (AiManager Map.empty) Map.empty [0..100] (mkStdGen 0)
+emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) (AiManager Map.empty) (Map.empty, Map.empty) [0..100] (mkStdGen 0)
 
 start :: StdGen -> Instance GOiD
 start gen = do
@@ -38,7 +38,7 @@ start gen = do
     put $ s { player = playerId }
     return playerId 
 
-update :: Instance (Map.Map String [Event])
+update :: Instance (Map.Map String [Event], Map.Map String [Event])
 update = do
     (InstanceState _ tm _ _ _ _ _) <- get
     tmErr <- Component.update tm
@@ -59,9 +59,9 @@ update = do
         otherwise  -> return ()
 
     s <- get
-    let evts = getEvents s
-    put $ s { getEvents = Map.empty }
-    return evts
+    let (currentFrameEvents, nextFrameEvents) = getEvents s
+    put $ s { getEvents = (nextFrameEvents, Map.empty) }
+    return (currentFrameEvents, nextFrameEvents)
 
 createObject :: JSValue -> Instance GOiD
 createObject objData = state $ \s -> 

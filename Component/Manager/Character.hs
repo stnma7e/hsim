@@ -3,6 +3,7 @@ module Component.Manager.Character
 , attackComponent
 , isCharacter
 , getCharacter
+, updateFromEvents
 ) where
 
 import Control.Monad.Trans.State (state, get, put)
@@ -44,7 +45,7 @@ instance ComponentCreator CharacterManager where
             (Ok cc')-> Right . CharacterManager $ Map.insert goid cc' ids
             (Error err) -> error $ "creating character component: " ++ err
     update _ = do
-        evts <- getEventsFromInstance ["attack"]
+        evts <- getEventsFromInstance ["attack", "death"]
         updateFromEvents evts
         return Nothing
 
@@ -59,6 +60,7 @@ updateFromEvents (evt:evts) = do
 
             return ()
         otherwise -> return ()
+
     updateFromEvents evts
 
 isCharacter :: CharacterManager -> GOiD -> Bool

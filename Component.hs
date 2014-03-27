@@ -47,7 +47,7 @@ getEventsFromInstance :: [String] -> Instance [Event]
 getEventsFromInstance eventsToLookFor = do
         s <- get
         -- lets get a list of all the events we're going to look at
-        let evts = map (`Map.lookup` getEvents s) eventsToLookFor
+        let evts = map (`Map.lookup` (fst $ getEvents s)) eventsToLookFor
         -- then filter out all of the either empty lists or nonexistent event types (a.k.a values constructed with Nothing)
         return . join $ filter (not . null) [fromJust x | x <- evts, isJust x]
 
@@ -63,12 +63,14 @@ pushEvent evt = insertEvent evt $ case evt of
         (DeathEvent _ _) -> eventTypeDeath
     where insertEvent :: Event -> String -> Instance String
           insertEvent evt typ = state $ \s ->
-              let evts = getEvents s
-                  eventsOfCurrentType = Map.lookup typ evts
+              let (currentFrameEvents, nextFrameEvents) = getEvents s
+                  eventsOfCurrentType = Map.lookup typ nextFrameEvents
                   newEventList = case eventsOfCurrentType of
-                      (Just curEvts) -> Map.insert typ (evt : curEvts) evts
-                      otherwise      -> Map.insert typ [evt] evts
-              in (show evt, s { getEvents = newEventList})
+                      (Just curEvts) -> Map.insert typ (evt : curEvts) nextFrameEvents
+                      otherwise      -> Map.insert typ [evt] nextFrameEvents
+              in (show evt, s { getEvents = (currentFrameEvents, newEventList) })
+
+type EventList = Map.Map String [Event]
 
 type Instance = State InstanceState
 data InstanceState = InstanceState
@@ -76,7 +78,7 @@ data InstanceState = InstanceState
     , transformManager :: TransformManager
     , characterManager :: CharacterManager
     , aiManager        :: AiManager
-    , getEvents        :: Map.Map String [Event]
+    , getEvents        :: (EventList, EventList)
     , availiableIDS    :: [GOiD]
     , randomNumGen     :: StdGen
     } deriving Show

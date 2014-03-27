@@ -28,6 +28,7 @@ instance ComponentCreator AiManager where
         in case ac of
             (Ok ac')-> Right . AiManager $ Map.insert goid (getComputerFromJSON ac') comps
             (Error err) -> error $ "creating ai component: " ++ err
+
     update _ = do
         s <- get
         let (AiManager comps) = aiManager s
@@ -58,7 +59,9 @@ enemyComputer thisId = do
     foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects (\idOfNearby ->
     -- end boilerplate
     -- begin ai computation
-        if (not $ isCharacter cm idOfNearby) || thisId == idOfNearby
+        if (not $ isCharacter cm idOfNearby) ||
+           (not $ isCharacter cm thisId)     ||
+           thisId == idOfNearby
         then return ()
         else do
             let char1 = getCharacter cm idOfNearby

@@ -21,8 +21,8 @@ instance Script Scene1 where
             putLine "Use the `m` command to move around."
 
             return . state $ \s -> flip runState s $ do
-                createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0])) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)]) Enemy
-                createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0])) (CharacterComponent 10 5 10 Dunteg [(Dunteg, 0)]) Enemy
+                createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0])) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)]) Passive
+                createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0])) (CharacterComponent 10 5 10 Dunteg [(Dunteg, 0)]) Passive
                 return ()
 
         , do
