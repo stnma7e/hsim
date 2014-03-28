@@ -131,16 +131,8 @@ data Direction = North | South | East | West
 
 getExits :: (Int, Int) -> TransformManager -> [Direction]
 getExits (x,y) tm =
-    let n = if null $ checkCollision (x + 1, y) tm
-            then [North]
-            else []
-        s = if null $ checkCollision (x - 1, y) tm
-            then [South]
-            else []
-        e = if null $ checkCollision (x, y + 1) tm
-            then [East]
-            else []
-        w = if null $ checkCollision (x, y - 1) tm
-            then [West]
-            else []
+    let n = [North | null $ checkCollision (x + 1, y) tm]
+        s = [South | null $ checkCollision (x - 1, y) tm]
+        e = [East  | null $ checkCollision (x, y + 1) tm]
+        w = [West  | null $ checkCollision (x, y - 1) tm]
     in n++s++e++w

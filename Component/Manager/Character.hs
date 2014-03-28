@@ -64,19 +64,13 @@ updateFromEvents (evt:evts) = do
 
     updateFromEvents evts
 
-isCharacter :: CharacterManager -> GOiD -> Bool
-isCharacter (CharacterManager ids) = flip Map.member ids
-
-getCharacter :: CharacterManager -> GOiD -> Maybe CharacterComponent
-getCharacter (CharacterManager ids) = flip Map.lookup ids
-
 attackObject :: GOiD -> GOiD -> HitLocation -> Instance AttackType
 attackObject id1 id2 hitLoc = do
     s <- get
     let cm@(CharacterManager ids) = characterManager s
         char1 = Map.lookup id1 ids
         char2 = Map.lookup id2 ids
-    if not (isJust char1) || not (isJust char2)
+    if isNothing char1 || isNothing char2
     then return Miss
     else let (Just justChar1) = char1
              (Just justChar2) = char2
@@ -89,8 +83,8 @@ attackObject id1 id2 hitLoc = do
                                                     }) id2 ids
          in do
              if health char2' <= 0
-               then pushEvent (DeathEvent id1 id2) >> return ()
-               else return ()
+             then void $ pushEvent (DeathEvent id1 id2)
+             else return ()
 
              s' <- get
              put $ s' { characterManager = CharacterManager ids'
@@ -102,9 +96,9 @@ attackComponent :: CharacterComponent -> CharacterComponent -> HitLocation -> St
 attackComponent char1 char2 hitLoc rnd =
     let (rndNum, newGen) = randomR (1, 100) rnd :: (Int, StdGen)
         damageDealt1 = case hitLoc of
-            Head  -> if rndNum > 10 then 0 else (damage char1 * 2.0)
-            Torso -> if rndNum > 90 then 0 else (damage char1)
-            Legs  -> if rndNum > 70 then 0 else (damage char1 * 1.5)
+            Head  -> if rndNum > 10 then 0 else damage char1 * 2.0
+            Torso -> if rndNum > 90 then 0 else damage char1
+            Legs  -> if rndNum > 70 then 0 else damage char1 * 1.5
         hitMiss = if damageDealt1 > 0
                   then Hit damageDealt1
                   else Miss
@@ -118,3 +112,9 @@ replace _ [] rs = rs
 replace f@(fac, _) (f'@(fac', rep):fx) rs = if fac' == fac
                                             then f:fx
                                             else replace f fx (rs ++ [f'])
+
+isCharacter :: CharacterManager -> GOiD -> Bool
+isCharacter (CharacterManager ids) = flip Map.member ids
+
+getCharacter :: CharacterManager -> GOiD -> Maybe CharacterComponent
+getCharacter (CharacterManager ids) = flip Map.lookup ids

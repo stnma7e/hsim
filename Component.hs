@@ -27,7 +27,7 @@ data Event = AttackEvent (GOiD, GOiD)
            | DeathEvent GOiD GOiD
            | CharacterMovedEvent GOiD [Float]
            | RequestCharacterCreationEvent String [Float]
-             deriving Show
+             deriving (Show, Read, Eq)
 
 data GameObjectJSON = GameObjectJSON
     { transform :: JSValue

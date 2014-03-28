@@ -2,7 +2,6 @@ module Instance
 ( Component.Instance(..)
 , Component.InstanceState(..)
 , emptyInstanceState
-, start
 , Instance.update
 , createObject
 , createObjectSpecificID
@@ -27,16 +26,6 @@ import Component.Manager.Ai
 
 emptyInstanceState :: InstanceState
 emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) (AiManager Map.empty) (Map.empty, Map.empty) [0..100] (mkStdGen 0)
-
-start :: StdGen -> Instance GOiD
-start gen = do
-    s <- get
-    put $ s { randomNumGen = gen }
-
-    playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)]) Enemy
-    s <- get
-    put $ s { player = playerId }
-    return playerId 
 
 update :: Instance (Map.Map String [Event], Map.Map String [Event])
 update = do

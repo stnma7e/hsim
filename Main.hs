@@ -25,11 +25,20 @@ maybeRead = fmap fst . listToMaybe . reads
 
 main :: IO ()
 main = do
-    let gen = mkStdGen 1
-        (id, is) = flip runState emptyInstanceState $ do
-        id <- start gen
-        update
-        return id
+    let (id, is) = flip runState emptyInstanceState $ do
+            s <- get
+            put $ s { randomNumGen = mkStdGen 1 }
+
+            let objJSON = buildObjectJSON (TransformComponent Open (Mat.unit 4)) 
+                                          (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
+                                          Enemy
+            playerId <- createObject objJSON
+
+            s <- get
+            put $ s { player = playerId }
+
+            update
+            return playerId
     
     loop is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
     return ()
@@ -55,7 +64,10 @@ loop is (s:sx) = do
                     (Left err)      -> print err
                     (Right "show")  -> print is'
                     (Right "look")  -> let tm = transformManager is'
-                                       in print $ getExits (getObjectLoc (player is') tm) tm
+                                       in do
+                                           putStrLn . (++) "Exits: " . show $ getExits (getObjectLoc (player is') tm) tm
+                                           -- print out the ids of the objects in this space
+                                           print . filter (/= player is') . map fst . flip getObjectsAt (transformManager is') $ getObjectLoc (player is') (transformManager is')
                     (Right "m")     -> let (TransformManager mats _) = transformManager is'
                                            (Just (TransformComponent objType mat)) = Map.lookup (player is') mats
                                        in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
@@ -66,6 +78,8 @@ loop is (s:sx) = do
                 let ((eventsFromLastFrame, eventsForNextFrame), is'') = runState update is'
                 putStrLn $ "events from last frame: " ++ show eventsFromLastFrame
                 putStrLn $ "events for next frame: "  ++ show eventsForNextFrame
+                putStrLn ""
+
                 loop is'' sx
 
 parseInput :: String -> [String] -> Instance (Either String String)
@@ -125,5 +139,4 @@ parseInput com args = case com of
         return $ if com `elem` commands
                  then Right com
                  else Left "not a command"
-            where commands :: [String]
-                  commands = ["quit", "show", "look", ""]
+            where commands = ["quit", "show", "look", ""]
