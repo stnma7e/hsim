@@ -1,5 +1,6 @@
 module Component.Manager.Character
-( attackObject
+( AttackType(..)
+, attackObject
 , attackComponent
 , isCharacter
 , getCharacter
@@ -19,7 +20,7 @@ import Component
 import Common
 
 data AttackType = Hit Float | Miss
-                  deriving (Show, Read)
+                  deriving (Show, Read, Eq, Ord)
 
 instance JSON CharacterComponent where
     showJSON (CharacterComponent health damage mana faction rep) = showJSON $ makeObj [
@@ -73,24 +74,28 @@ attackObject :: GOiD -> GOiD -> HitLocation -> Instance AttackType
 attackObject id1 id2 hitLoc = do
     s <- get
     let cm@(CharacterManager ids) = characterManager s
-        (Just char1) = Map.lookup id1 ids
-        (Just char2) = Map.lookup id2 ids
-        (hitMiss, char2', newGen) = attackComponent char1 char2 hitLoc (randomNumGen s)
-        (Just rep1) = lookup (faction char1) (rep char1)
-        reputationDiff = if faction char1 == faction char2
-                         then -1 
-                         else  1
-        ids' = Map.update (const $ Just char2' { rep = replace (faction char1, rep1 + reputationDiff) (rep char1) []
-                                               }) id2 ids
+        char1 = Map.lookup id1 ids
+        char2 = Map.lookup id2 ids
+    if not (isJust char1) || not (isJust char2)
+    then return Miss
+    else let (Just justChar1) = char1
+             (Just justChar2) = char2
+             (hitMiss, char2', newGen) = attackComponent justChar1 justChar2 hitLoc (randomNumGen s)
+             (Just rep1) = lookup (faction justChar1) (rep justChar1)
+             reputationDiff = if faction justChar2 == faction justChar2
+                                then -1 
+                                else  1
+             ids' = Map.update (const $ Just char2' { rep = replace (faction justChar1, rep1 + reputationDiff) (rep justChar1) []
+                                                    }) id2 ids
+         in do
+             if health char2' <= 0
+               then pushEvent (DeathEvent id1 id2) >> return ()
+               else return ()
 
-    if health char2' <= 0
-      then pushEvent (DeathEvent id1 id2) >> return ()
-      else return ()
-
-    s' <- get
-    put $ s' { characterManager = CharacterManager ids'
-             , randomNumGen = newGen }
-    return hitMiss
+             s' <- get
+             put $ s' { characterManager = CharacterManager ids'
+                      , randomNumGen = newGen }
+             return hitMiss
 
 
 attackComponent :: CharacterComponent -> CharacterComponent -> HitLocation -> StdGen -> (AttackType, CharacterComponent, StdGen)
