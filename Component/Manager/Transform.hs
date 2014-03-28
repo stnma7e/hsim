@@ -1,5 +1,6 @@
 module Component.Manager.Transform
 ( moveObject
+, getGridXY
 , getExits
 , getObjectLoc
 , getObjectsAt
@@ -79,11 +80,9 @@ updateGrid goid loc (Delete) grid = let newGrid = Map.update (Just . foldr (\x a
                                     in case gridSpace of
                                         (Just []) -> Map.delete loc grid
                                         otherwise -> newGrid
-
 getGridXY :: Mat.Matrix Float -> (Int, Int)
-getGridXY m = let x = m `Mat.at` (1, 4)
-                  y = m `Mat.at` (3, 4)
-              in (truncate x, truncate y)
+getGridXY m = let x:y:z = Mat.toList $ m `Mat.times` Mat.matrix (4, 1) (\(x, _) -> if x == 4 then 1 else 0) 
+              in (truncate (head x), truncate (head y))
 
 moveObject :: GOiD -> Mat.Matrix Float -> Instance (Maybe String)
 moveObject  goid newLoc = do
