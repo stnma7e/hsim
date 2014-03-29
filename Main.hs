@@ -6,6 +6,7 @@ import qualified Data.Map as Map
 import System.Random
 import Data.List
 import Data.Maybe
+import Control.Monad
 
 import Instance
 import Event
@@ -44,47 +45,68 @@ main = do
     return ()
 
 loop :: InstanceState -> [IO (Instance ())] -> IO (Instance ())
-loop is [] = return . state $ \s -> ((), s)
-loop is (s:sx) = do
+loop is [] = return $ return ()
+loop is (scene1:sceneN) = do
     -- run one scene of our scene script
-    scene <- s
-    let scene' = execState scene is
+    scene' <- liftM (flip execState is) scene1
 
     -- then parse commands and junk like normal
-    line <- getLine
-    let args = words line
+    args <- liftM words getLine
     if null args
-    then loop scene' sx
+    then loop scene' (return (return ()):sceneN)
     else do
-        let (ret, is') = runState (parseInput (head args) (tail args)) scene'
-        case ret of 
-            (Right "quit") -> return . state $ const ((), is)
-            otherwise -> do
-                case ret of
-                    (Left err)      -> print err
-                    (Right "show")  -> print is'
-                    (Right "look")  -> let tm = transformManager is'
-                                       in do
-                                           putStrLn . (++) "Exits: " . show $ getExits (getObjectLoc (player is') tm) tm
-                                           -- print out the ids of the objects in this space
-                                           print . filter (/= player is') . map fst . flip getObjectsAt (transformManager is') $ getObjectLoc (player is') (transformManager is')
-                    (Right "m")     -> let (TransformManager mats _) = transformManager is'
-                                           (Just (TransformComponent objType mat)) = Map.lookup (player is') mats
-                                       in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
-                    otherwise       -> return ()
+        -- check which command has just been entered
+        -- and react to the command by modifing the instance
+        let (ret, is') = runState (handleInstanceResponse (head args) (tail args)) scene'
+        -- if the command entered needs to do some IO
+        -- then it comes back here
 
-                -- let's get a list of the events from the last frame
-                -- then we can use this information to display character deaths, etc.
-                let ((eventsFromLastFrame, eventsForNextFrame), is'') = runState update is'
-                putStrLn $ "events from last frame: " ++ show eventsFromLastFrame
-                putStrLn $ "events for next frame: "  ++ show eventsForNextFrame
-                putStrLn ""
+        -- ret is going to be a Left  : error value
+        --                    a Right : "quit"
+        --                    a Right : regular command needing IO
+        (com, reRunThisFrame) <- either (reRunFrameBecauseThereWasAnError is') (goToNextFrameNoError is') ret
 
-                loop is'' sx
+        putStrLn ""
 
-parseInput :: String -> [String] -> Instance (Either String String)
-parseInput com args = case com of
-    -- creates an object on the client
+        if com == "quit"
+        then return . state $ const ((), is')
+        else if reRunThisFrame
+             then loop is' (return (return ()):sceneN)
+             else do
+                 -- let's get a list of the events from the last frame
+                 -- then we can use this information to display character deaths, etc.
+                 let ((eventsFromLastFrame, eventsForNextFrame), is'') = runState update is'
+                 putStrLn $ "events from last frame: " ++ show eventsFromLastFrame
+                 putStrLn $ "events for next frame: "  ++ show eventsForNextFrame
+
+                 loop is'' sceneN
+
+    where -- the command was not valid and were not going to update the scene
+          -- this is a Either Left value
+          reRunFrameBecauseThereWasAnError :: InstanceState -> String -> IO (String, Bool)
+          reRunFrameBecauseThereWasAnError is com = (const $ return (com, True)) =<< print com
+
+          -- if the command is quit, then we do not want to re-run this frame
+          -- otherwise we are dealing with a valid command,
+          -- but, we still do not want to re-run the frame
+          -- this is a Either Right value
+          goToNextFrameNoError :: InstanceState -> String -> IO (String, Bool)
+          goToNextFrameNoError is com = (const $ return (com, False)) =<< case com of
+              "show"  -> print is
+              "look"  -> let tm = transformManager is
+                         in do
+                             putStrLn . (++) "Exits: " . show $ getExits (getObjectLoc (player is) tm) tm
+                             -- print out the ids of the objects in this space
+                             print . filter (/= player is) . map fst . flip getObjectsAt (transformManager is) $
+                                getObjectLoc (player is) (transformManager is)
+              "m"     -> let (TransformManager mats _) = transformManager is
+                             (Just (TransformComponent objType mat)) = Map.lookup (player is) mats
+                         in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
+              otherwise -> return ()
+
+handleInstanceResponse :: String -> [String] -> Instance (Either String String)
+handleInstanceResponse com args = case com of
+    -- creates an object in the instance
     -- takes 1 argument of ID to give object
     "create"  -> if length args < 2
                  then return $ Left "not enough arguments for `create` command"
@@ -135,8 +157,7 @@ parseInput com args = case com of
     -- this block will just let specified commands fall through
     -- to be evaluated in the calling function with access to IO
     otherwise -> do
-        s <- get
         return $ if com `elem` commands
                  then Right com
                  else Left "not a command"
-            where commands = ["quit", "show", "look", ""]
+            where commands = ["quit", "show", "look"]
