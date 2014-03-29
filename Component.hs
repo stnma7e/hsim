@@ -114,9 +114,9 @@ data Faction = Betuol | Dunteg | Blitzal
                deriving (Show , Read, Eq, Ord)
 type Reputation = (Faction, Int)
 data CharacterComponent = CharacterComponent
-    { health  :: Float
+    { health  :: Int
     , damage  :: Float
-    , mana    :: Float
+    , mana    :: Int
     , faction :: Faction
     , rep     :: [Reputation]
     } deriving Show

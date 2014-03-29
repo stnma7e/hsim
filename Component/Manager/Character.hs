@@ -1,5 +1,6 @@
 module Component.Manager.Character
 ( AttackType(..)
+, SpellType(..)
 , attackObject
 , attackComponent
 , isCharacter
@@ -20,7 +21,10 @@ import Component
 import Common
 
 data AttackType = Hit Float | Miss
-                  deriving (Show, Read, Eq, Ord)
+                  deriving (Show, Read, Eq)
+
+data SpellType = Melee Float
+                 deriving (Show, Read, Eq, Ord)
 
 instance JSON CharacterComponent where
     showJSON (CharacterComponent health damage mana faction rep) = showJSON $ makeObj [
@@ -31,9 +35,9 @@ instance JSON CharacterComponent where
         , ("Reputation", showJSON $ show rep)
         ]
     readJSON (JSObject obj) = do
-        health  <- obj ! "Health"     :: Result Float
+        health  <- obj ! "Health"     :: Result Int
         damage  <- obj ! "Damage"     :: Result Float
-        mana    <- obj ! "Mana"       :: Result Float
+        mana    <- obj ! "Mana"       :: Result Int
         faction <- obj ! "Faction"    :: Result String
         rep     <- obj ! "Reputation" :: Result String
         return $ CharacterComponent health damage mana (read faction) (read rep)
@@ -72,46 +76,47 @@ attackObject id1 id2 hitLoc = do
         char2 = Map.lookup id2 ids
     if isNothing char1 || isNothing char2
     then return Miss
-    else let (Just justChar1) = char1
-             (Just justChar2) = char2
-             (hitMiss, char2', newGen) = attackComponent justChar1 justChar2 hitLoc (randomNumGen s)
-             (Just rep1) = lookup (faction justChar1) (rep justChar1)
-             reputationDiff = if faction justChar2 == faction justChar2
+    else let (Just char1') = char1
+             (Just char2') = char2
+             (hitMiss, health2', newGen) = attackComponent (health char1', health char2') (Melee (damage char1')) hitLoc (randomNumGen s)
+             (Just rep1) = lookup (faction char1') (rep char1')
+             reputationDiff = if faction char2' == faction char2'
                                 then -1 
                                 else  1
-             ids' = Map.update (const $ Just char2' { rep = replace (faction justChar1, rep1 + reputationDiff) (rep justChar1) []
+             ids' = Map.update (const $ Just char2' { health = health2'
+                                                    , rep = replace (faction char1', rep1 + reputationDiff) (rep char1') []
                                                     }) id2 ids
          in do
-             if health char2' <= 0
+             if health2' <= 0
              then void $ pushEvent (DeathEvent id1 id2)
              else return ()
 
              s' <- get
              put $ s' { characterManager = CharacterManager ids'
-                      , randomNumGen = newGen }
+                      , randomNumGen = newGen
+                      }
              return hitMiss
-
-
-attackComponent :: CharacterComponent -> CharacterComponent -> HitLocation -> StdGen -> (AttackType, CharacterComponent, StdGen)
-attackComponent char1 char2 hitLoc rnd =
-    let (rndNum, newGen) = randomR (1, 100) rnd :: (Int, StdGen)
-        damageDealt1 = case hitLoc of
-            Head  -> if rndNum > 10 then 0 else damage char1 * 2.0
-            Torso -> if rndNum > 90 then 0 else damage char1
-            Legs  -> if rndNum > 70 then 0 else damage char1 * 1.5
-        hitMiss = if damageDealt1 > 0
-                  then Hit damageDealt1
-                  else Miss
-    in if health char2 <= 0 || health char1 <= 0
-         then (Miss, char2, newGen)
-         else (hitMiss, char2 { health = health char2 - damageDealt1 
-                              }, newGen)
 
 replace :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
 replace _ [] rs = rs
 replace f@(fac, _) (f'@(fac', rep):fx) rs = if fac' == fac
                                             then f:fx
                                             else replace f fx (rs ++ [f'])
+
+type Health = Int
+attackComponent :: (Health, Health) -> SpellType -> HitLocation -> StdGen -> (AttackType, Health, StdGen)
+attackComponent (health1, health2) (Melee damage1) hitLoc rnd =
+    let (rndNum, newGen) = randomR (1, 100) rnd :: (Int, StdGen)
+        damageDealt1 = case hitLoc of
+            Head  -> if rndNum > 10 then 0 else damage1 * 2
+            Torso -> if rndNum > 90 then 0 else damage1
+            Legs  -> if rndNum > 70 then 0 else damage1 * 1.5
+        hitMiss = if damageDealt1 > 0
+                  then Hit damageDealt1
+                  else Miss
+    in if health2 <= 0 || health1 <= 0
+         then (Miss, health2, newGen)
+         else (hitMiss, health2 - (truncate damageDealt1), newGen)
 
 isCharacter :: CharacterManager -> GOiD -> Bool
 isCharacter (CharacterManager ids) = flip Map.member ids

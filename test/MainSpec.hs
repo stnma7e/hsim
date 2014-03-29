@@ -1,6 +1,7 @@
 module MainSpec (spec) where
 
 import Test.Hspec
+import Test.QuickCheck
 import System.Random
 import Control.Monad.Trans.State
 import qualified Numeric.Matrix as Mat
@@ -70,12 +71,16 @@ transformManagerSpec = describe "TransformManager" $ do
             err `shouldBe` Nothing
             maybePlayerLocation `shouldBe` Just (TransformComponent Open (buildTranslationMatrix (4,4) [1,0,0]))
 
-
 characterManagerSpec = describe "CharacterManager" $ do
     context "attackComponent" $ do
         it "returns Miss when character has 0 health" $ do
-            let (hitmiss, _, _) = attackComponent charComponent charComponent Torso randomGen
+            let (hitmiss, _, _) = attackComponent (0, 0) (Melee (damage charComponent)) Torso randomGen
             hitmiss `shouldBe` Miss
+        it "returns a correct damage report when attacked" $ property $
+            \x y d rnd -> let (hitmiss', charHealth', _) = attackComponent (x, y) (Melee d) Torso (mkStdGen rnd) 
+                        in case hitmiss' of
+                            (Hit damage) -> charHealth' == y - truncate damage
+                            otherwise    -> True
 
     context "attackObject" $ do
         it "returns Miss when the character being attacked does not exist" $ do
