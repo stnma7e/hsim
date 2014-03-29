@@ -33,8 +33,10 @@ instance JSON Event where
         buildEventJSON eventTypeRequestCharacterCreation [("Type", showJSON charType), ("Location", showJSON loc)]
     showJSON (CharacterMovedEvent char loc) =
         buildEventJSON eventTypeCharacterMoved [("CharID", showJSON char), ("NewLocation", showJSON loc)]
-    showJSON (DeathEvent char loc) =
-        buildEventJSON eventTypeCharacterMoved [("KilledBy", showJSON char), ("Dead", showJSON loc)]
+    showJSON (DeathEvent char) =
+        buildEventJSON eventTypeCharacterMoved [("Dead", showJSON char)]
+    showJSON (KillEvent killer dead) =
+        buildEventJSON eventTypeCharacterMoved [("KilledBy", showJSON killer), ("Dead", showJSON dead)]
 
 instance JSONEvent Event where
     getEvent (EventDescriptor eventType event) 
@@ -55,8 +57,12 @@ instance JSONEvent Event where
         | eventType == eventTypeDeath =
             case readJSON event of
                 (Ok (JSObject obj)) -> let (Ok dead)     = obj ! "Dead"
+                                       in DeathEvent dead
+        | eventType == eventTypeKill =
+            case readJSON event of
+                (Ok (JSObject obj)) -> let (Ok dead)     = obj ! "Dead"
                                            (Ok killedBy) = obj ! "KilledBy"
-                                       in DeathEvent killedBy dead
+                                       in KillEvent killedBy dead
              
 data EventDescriptor = EventDescriptor
     { eventType :: String

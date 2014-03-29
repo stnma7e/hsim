@@ -37,7 +37,7 @@ instance ComponentCreator AiManager where
         -- then assign a function to process these
         -- and store these computation thunks in a list
         -- the list will get processed later on with the list of ai computations
-        let processedEvents = flip map evts $ \(DeathEvent _ dead) -> do
+        let processedEvents = flip map evts $ \(DeathEvent dead) -> do
             -- deleting their ai functions so they won't get computed each frame
             s <- get
             let (AiManager comps) = aiManager s

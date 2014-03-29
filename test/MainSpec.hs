@@ -7,6 +7,7 @@ import Control.Monad.Trans.State
 import qualified Numeric.Matrix as Mat
 import qualified Data.Map as Map
 import Data.List
+import Text.JSON
 
 import Instance
 import Math
@@ -18,7 +19,7 @@ import Component.Manager.Ai
 randomGen :: StdGen
 randomGen = mkStdGen 1
 
-charComponent = CharacterComponent 10 5 10 Betuol [(Betuol, 0)]
+charComponent = CharacterComponent 10 10 Betuol [(Betuol, 0)] EmptyEquipment
 deadCharComponent = charComponent { health = 0 }
 
 startingInstance :: InstanceState
@@ -26,7 +27,9 @@ startingInstance = flip execState emptyInstanceState $ do
     s <- get
     put $ s { randomNumGen = mkStdGen 1 }
 
-    playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4)) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)]) Enemy
+    playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4))
+                                               charComponent
+                                               Enemy
 
     s <- get
     put $ s { player = playerId }
@@ -74,13 +77,32 @@ transformManagerSpec = describe "TransformManager" $ do
 characterManagerSpec = describe "CharacterManager" $ do
     context "attackComponent" $ do
         it "returns Miss when character has 0 health" $ do
-            let (hitmiss, _, _) = attackComponent (0, 0) (Melee (damage charComponent)) Torso randomGen
+            let (hitmiss, _, _) = attackComponent (0, 0) (DamageType (damage charComponent) Melee) Torso randomGen
             hitmiss `shouldBe` Miss
         it "returns a correct damage report when attacked" $ property $
-            \x y d rnd -> let (hitmiss', charHealth', _) = attackComponent (x, y) (Melee d) Torso (mkStdGen rnd) 
+            \x y d rnd -> let (hitmiss', charHealth', _) = attackComponent (x, y) (DamageType d Melee) Torso (mkStdGen rnd) 
                         in case hitmiss' of
-                            (Hit damage) -> charHealth' == y - truncate damage
+                            (Hit damage) ->    damage == truncate d
+                                            && charHealth' == y - truncate d
                             otherwise    -> True
+
+    context "update" $ do
+        it "will delete a component if its health has gone below 0" $ do
+            let charId = 0
+                objJSON = showJSON $ CharacterComponent 0 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 10 Melee)
+                comp = case readJSON objJSON of
+                    (Ok comp')  -> comp'
+                    (Error err) -> error err
+                cc = case createComponent charId objJSON (CharacterManager Map.empty) of
+                    (Right cc) -> cc
+                    (Left err) -> error err
+            getCharacter cc charId `shouldBe` Just comp
+            let (_, is) = flip runState (emptyInstanceState { characterManager = cc }) $ do
+                -- first checks for dead and pushes an event
+                Instance.update
+                -- second update will delete the component
+                Instance.update
+            getCharacter (characterManager is) charId `shouldBe` Nothing
 
     context "attackObject" $ do
         it "returns Miss when the character being attacked does not exist" $ do
@@ -95,7 +117,7 @@ instanceSpec = describe "Instance" $ do
     context "pushEvent" $ do
         it "puts an event in next frame's event list" $ do
             let (Just nextFramesDeathEvents, s) = flip runState startingInstance $ do
-                pushEvent $ DeathEvent 1 12
+                pushEvent $ DeathEvent 12
                 s <- get
                 return . Map.lookup "death" . snd $ getEvents s
-            (DeathEvent 1 12 `elem` nextFramesDeathEvents) `shouldBe` True
+            (DeathEvent 12 `elem` nextFramesDeathEvents) `shouldBe` True

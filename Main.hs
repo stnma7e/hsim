@@ -31,7 +31,7 @@ main = do
             put $ s { randomNumGen = mkStdGen 1 }
 
             let objJSON = buildObjectJSON (TransformComponent Open (Mat.unit 4)) 
-                                          (CharacterComponent 10 5 10 Betuol [(Betuol, 0)])
+                                          (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 10 Melee))
                                           Enemy
             playerId <- createObject objJSON
 
@@ -113,7 +113,9 @@ handleInstanceResponse com args = case com of
                  else case maybeRead $ args !! 0 of
                           (Just idToMake) -> case maybeRead $ args !! 1 :: Maybe AiComponent of 
                               (Just computerType) -> do
-                                  let json = buildObjectJSON (TransformComponent Open (Mat.unit 4 )) (CharacterComponent 10 5 10 Betuol [(Betuol, 0)]) computerType
+                                  let json = buildObjectJSON (TransformComponent Open (Mat.unit 4 ))
+                                                             (CharacterComponent 10 10 Betuol [(Betuol, 0)] EmptyEquipment)
+                                                             computerType
                                   createObjectSpecificID idToMake json
                                   return $ Right com
                               otherwise -> return $ Left "invalid ai type"

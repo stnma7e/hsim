@@ -14,6 +14,7 @@ import Common
 
 eventTypeAttack                   = "attack"
 eventTypeDeath                    = "death"
+eventTypeKill                     = "kill"
 eventTypeCharacterMoved           = "characterMoved"
 eventTypeRequestCharacterCreation = "requestCharacterCreation"
 
@@ -24,7 +25,8 @@ class ComponentCreator a where
 	update :: a -> Instance (Maybe String)
 
 data Event = AttackEvent (GOiD, GOiD)
-           | DeathEvent GOiD GOiD
+           | DeathEvent GOiD
+           | KillEvent GOiD GOiD
            | CharacterMovedEvent GOiD [Float]
            | RequestCharacterCreationEvent String [Float]
              deriving (Show, Read, Eq)
@@ -57,18 +59,19 @@ buildObjectJSON tm cm am = showJSON $ makeObj [ ("Transform", showJSON tm)
                                               , ("Ai", showJSON am)
                                               ]
 
-pushEvent :: Event -> Instance String
+pushEvent :: Event -> Instance ()
 pushEvent evt = insertEvent evt $ case evt of
         (AttackEvent _)  -> eventTypeAttack
-        (DeathEvent _ _) -> eventTypeDeath
-    where insertEvent :: Event -> String -> Instance String
+        (DeathEvent _)   -> eventTypeDeath
+        (KillEvent _ _)    -> eventTypeKill
+    where insertEvent :: Event -> String -> Instance ()
           insertEvent evt typ = state $ \s ->
               let (currentFrameEvents, nextFrameEvents) = getEvents s
                   eventsOfCurrentType = Map.lookup typ nextFrameEvents
                   newEventList = case eventsOfCurrentType of
                       (Just curEvts) -> Map.insert typ (evt : curEvts) nextFrameEvents
                       otherwise      -> Map.insert typ [evt] nextFrameEvents
-              in (show evt, s { getEvents = (currentFrameEvents, newEventList) })
+              in ((), s { getEvents = (currentFrameEvents, newEventList) })
 
 type EventList = Map.Map String [Event]
 
@@ -112,17 +115,29 @@ data HitLocation = Head | Torso | Legs
                    deriving (Show, Read)
 data Faction = Betuol | Dunteg | Blitzal
                deriving (Show , Read, Eq, Ord)
+data SpellType = Melee | Fire | Earth | Frost | Air
+                 deriving (Show, Read, Eq)
+data DamageType = DamageType Float SpellType
+                 deriving (Show, Read, Eq)
 type Reputation = (Faction, Int)
+data CharacterEquipment = EmptyEquipment
+                        | CharacterEquipment
+    { weapon :: DamageType
+    } deriving (Show, Read, Eq)
 data CharacterComponent = CharacterComponent
     { health  :: Int
-    , damage  :: Float
     , mana    :: Int
     , faction :: Faction
     , rep     :: [Reputation]
-    } deriving Show
+    , equipment :: CharacterEquipment
+    } deriving (Show, Eq)
 newtype CharacterManager = CharacterManager (Map.Map GOiD CharacterComponent)
                            deriving Show
-
+damage :: CharacterComponent -> Float
+damage char = case equipment char of
+    (CharacterEquipment ce) -> let (DamageType damage _) = ce
+                               in damage
+    otherwise -> 0
 --
 -- AI
 --
