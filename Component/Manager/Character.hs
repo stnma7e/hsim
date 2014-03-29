@@ -90,16 +90,18 @@ attackObject id1 id2 hitLoc = do
              ids' = Map.update (const $ Just char2' { health = health2'
                                                     , rep = replace (faction char1', rep1 + reputationDiff) (rep char1') []
                                                     }) id2 ids
-         in do
-             if health2' <= 0
-             then pushEvent (DeathEvent id2) >>= \_ -> pushEvent (KillEvent id1 id2)
-             else return ()
+         in if health char2' <= 0
+            then return Miss
+            else do
+                if health2' <= 0
+                then pushEvent (DeathEvent id2) >>= \_ -> pushEvent (KillEvent id1 id2)
+                else return ()
 
-             s' <- get
-             put $ s' { characterManager = CharacterManager ids'
-                      , randomNumGen = newGen
-                      }
-             return hitMiss
+                s' <- get
+                put $ s' { characterManager = CharacterManager ids'
+                         , randomNumGen = newGen
+                         }
+                return hitMiss
 
 replace :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
 replace _ [] rs = rs

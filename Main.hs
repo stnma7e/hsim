@@ -64,7 +64,11 @@ loop is (scene1:sceneN) = do
         -- ret is going to be a Left  : error value
         --                    a Right : "quit"
         --                    a Right : regular command needing IO
-        (com, reRunThisFrame) <- either (reRunFrameBecauseThereWasAnError is') (goToNextFrameNoError is') ret
+        (com, reRunThisFrame) <- either (\x -> let x' = words x
+                                               in reRunFrameBecauseThereWasAnError is' (head x') (tail x'))
+                                        (\x -> let x' = words x
+                                               in goToNextFrameNoError is' (head x') (tail x'))
+                                        ret
 
         putStrLn ""
 
@@ -83,15 +87,15 @@ loop is (scene1:sceneN) = do
 
     where -- the command was not valid and were not going to update the scene
           -- this is a Either Left value
-          reRunFrameBecauseThereWasAnError :: InstanceState -> String -> IO (String, Bool)
-          reRunFrameBecauseThereWasAnError is com = (const $ return (com, True)) =<< print com
+          reRunFrameBecauseThereWasAnError :: InstanceState -> String -> [String] -> IO (String, Bool)
+          reRunFrameBecauseThereWasAnError is com _ = (const $ return (com, True)) =<< print com
 
           -- if the command is quit, then we do not want to re-run this frame
           -- otherwise we are dealing with a valid command,
           -- but, we still do not want to re-run the frame
           -- this is a Either Right value
-          goToNextFrameNoError :: InstanceState -> String -> IO (String, Bool)
-          goToNextFrameNoError is com = (const $ return (com, False)) =<< case com of
+          goToNextFrameNoError :: InstanceState -> String -> [String] -> IO (String, Bool)
+          goToNextFrameNoError is com args = (const $ return (com, False)) =<< case com of
               "show"  -> print is
               "look"  -> let tm = transformManager is
                          in do
@@ -102,6 +106,9 @@ loop is (scene1:sceneN) = do
               "m"     -> let (TransformManager mats _) = transformManager is
                              (Just (TransformComponent objType mat)) = Map.lookup (player is) mats
                          in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
+              "a"     -> if length args < 1
+                         then error "no return from attackObject"
+                         else print $ head args
               otherwise -> return ()
 
 handleInstanceResponse :: String -> [String] -> Instance (Either String String)
@@ -151,8 +158,8 @@ handleInstanceResponse com args = case com of
                      case maybeRead $ args !! 0 of
                         (Just idToAttack) -> case maybeRead $ args !! 1 of
                             (Just loc) -> do
-                                attackObject (player s) idToAttack loc
-                                return $ Right com
+                                hitmiss <- attackObject (player s) idToAttack loc
+                                return . Right $ com ++ " " ++ show hitmiss
                             otherwise -> return $ Left "cannot read hit location"
                         otherwise -> return $ Left "cannot read id to attack"
     -- for commands that need to use IO
