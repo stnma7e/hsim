@@ -3,6 +3,7 @@ module Component.Manager.Transform
 , getGridXY
 , getExits
 , getObjectLoc
+, getObjectMatrix
 , getObjectsAt
 , checkCollision
 , checkBlocked
@@ -80,8 +81,9 @@ updateGrid goid loc (Delete) grid = let newGrid = Map.update (Just . foldr (\x a
                                     in case gridSpace of
                                         (Just []) -> Map.delete loc grid
                                         otherwise -> newGrid
+
 getGridXY :: Mat.Matrix Float -> (Int, Int)
-getGridXY m = let x:y:z = Mat.toList $ m `Mat.times` Mat.matrix (4, 1) (\(x, _) -> if x == 4 then 1 else 0) 
+getGridXY m = let x:y:z = Mat.toList $ m `Mat.times` Mat.fromList [[0],[0],[0],[1]]
               in (truncate (head x), truncate (head y))
 
 moveObject :: GOiD -> Mat.Matrix Float -> Instance (Maybe String)
@@ -95,14 +97,17 @@ moveObject  goid newLoc = do
             in case tc of
                 (Just (TransformComponent typ mat)) ->
                     let collisionIds = checkCollision loc tm
-                    in if not $ null collisionIds 
-                       then return . Just $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD's " ++ show collisionIds ++ "."
-                       else let oldLoc = getGridXY mat
-                                gridWithOldDeleted = updateGrid goid oldLoc Delete grid
-                                grid'  = updateGrid goid loc Insert gridWithOldDeleted
-                            in do
-                                put $ s { transformManager = TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid' }
-                                return Nothing
+                        -- make sure to remove the object we're trying to
+                        -- move so that it doesn't block itself if moving
+                        -- to the same place
+                     in if not . null $ filter (/= goid) collisionIds 
+                        then return . Just $ "location " ++ show loc ++ " is blocked for GOiD " ++ show goid ++ ", by GOiD's " ++ show collisionIds ++ "."
+                        else let oldLoc = getGridXY mat
+                                 gridWithOldDeleted = updateGrid goid oldLoc Delete grid
+                                 grid' = updateGrid goid loc Insert gridWithOldDeleted
+                             in do
+                                 put $ s { transformManager = TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid' }
+                                 return Nothing
                 otherwise -> return . Just $ "no matrix for component when moving; GOiD: " ++ show goid
         otherwise -> return . Just $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved"
 
@@ -123,6 +128,12 @@ checkBlocked (_,    TransformComponent Open _)  acc = acc
 getObjectLoc :: GOiD -> TransformManager ->  (Int, Int)
 getObjectLoc id (TransformManager mats _) = let (Just comp) = Map.lookup id mats
                                             in getGridXY (getMatrix comp)
+
+getObjectMatrix :: GOiD -> TransformManager -> Mat.Matrix Float
+getObjectMatrix id (TransformManager mats _) = let mat = Map.lookup id mats
+                                                in case mat of
+                                                    (Just (TransformComponent _ mat')) -> mat'
+                                                    otherwise   -> error $ "no matrix for id " ++ show id ++ "in getObjectMatrix"
 
 data Direction = North | South | East | West
                | NWest | SWest

@@ -1,6 +1,5 @@
 module Component.Manager.Ai
-( runAiComputers
-, getComputerFromJSON
+( getComputerFromJSON
 ) where
 
 import Text.JSON
@@ -8,12 +7,14 @@ import Control.Monad
 import Control.Monad.Trans.State (state, get, put)
 import Control.Applicative
 import qualified Data.Map as Map
+import qualified Numeric.Matrix as Mat
 import Data.Function
 
 import Component.Manager.Transform
 import Component.Manager.Character
 import Component
 import Common
+import Math
 
 instance JSON AiComponent where
     showJSON computerType = showJSON $ makeObj
@@ -43,21 +44,20 @@ instance ComponentCreator AiManager where
             let (AiManager comps) = aiManager s
             put $ s { aiManager = AiManager $ Map.delete dead comps}
             return ()
+ 
+        -- processedEvents must come first otherwise a 'dead' component would compute
+        -- its ai unnecessarily
+        foldr ((=<<) . const) (return ()) processedEvents
 
         s <- get
         let (AiManager comps) = aiManager s
-        let computationsToRun = map runAiComputers (Map.keys comps) <*> [Map.elems comps]
-        -- processedEvents must come last in the list because we are folding from the right
-        -- otherwise a 'dead' component would compute its ai unessecarially
-        foldr (\is acc -> acc >>= const is) (return ()) (computationsToRun ++ processedEvents)
+        Map.foldrWithKey (\id comp acc -> acc >> comp id) (return ()) comps
         return Nothing
 
-runAiComputers :: GOiD -> [AiComputer] -> Instance ()
-runAiComputers goid = fix (\f acs'@(ac:acs) -> ac goid >> unless (null acs) (f acs))
-    
 getComputerFromJSON :: AiComponent -> AiComputer
 getComputerFromJSON computerType = case computerType of
     Enemy     -> enemyComputer
+    Follow    -> followComputer
     Passive   -> \_ -> return ()
     
 enemyComputer :: AiComputer
@@ -68,15 +68,28 @@ enemyComputer thisId = do
     let closeObjects = filter (isCharacter cm) . map fst $ getObjectsAt (getObjectLoc thisId tm) tm
     foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects $ \idOfNearby ->
     -- begin ai computation
-        if not (isCharacter cm idOfNearby) ||
-           not (isCharacter cm thisId)     ||
-           thisId == idOfNearby
-        then return ()
-        else do
+        unless (not (isCharacter cm idOfNearby) ||
+                not (isCharacter cm thisId)     ||
+                thisId == idOfNearby) $ do
             let char1 = getCharacter cm idOfNearby
                 (Just thisChar) = getCharacter cm thisId
             case char1 of
                 Nothing       -> return ()
-                (Just char1') -> if health char1' <= health thisChar
-                                 then void $ attackObject thisId idOfNearby Torso
-                                 else return ()
+                (Just char1') -> when (health char1' <= health thisChar) $
+                                     void $ attackObject thisId idOfNearby Torso
+
+followComputer :: AiComputer
+followComputer thisId = do
+    s <- get
+    let player = (Component.player s)
+        tm = transformManager s
+    unless (getObjectLoc player tm == getObjectLoc thisId tm) $ do
+        let playerLoc   = getObjectMatrix player tm `Mat.times` Mat.fromList [[0],[0],[0],[1]]
+            computerMatrix = getObjectMatrix thisId tm
+            computerLoc = computerMatrix `Mat.times` Mat.fromList [[0],[0],[0],[1]]
+            diffVector  = playerLoc `Mat.minus` computerLoc
+            translationMat = buildTranslationMatrix (4,4) (concat $ Mat.toList diffVector) `Mat.times` computerMatrix
+        err <- moveObject thisId translationMat
+        case err of
+            (Just err') -> error err'
+            otherwise -> return ()

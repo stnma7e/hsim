@@ -20,17 +20,6 @@ eventTypeRequestCharacterCreation = "requestCharacterCreation"
 
 type GOiD = Int
 
-class ComponentCreator a where
-	createComponent :: GOiD -> JSValue -> a -> Either String a
-	update :: a -> Instance (Maybe String)
-
-data Event = AttackEvent (GOiD, GOiD)
-           | DeathEvent GOiD
-           | KillEvent GOiD GOiD
-           | CharacterMovedEvent GOiD [Float]
-           | RequestCharacterCreationEvent String [Float]
-             deriving (Show, Read, Eq)
-
 data GameObjectJSON = GameObjectJSON
     { transform :: JSValue
     , character :: JSValue
@@ -45,6 +34,19 @@ instance JSON GameObjectJSON where
         return $ GameObjectJSON tm cm am
     readJSON _ = mzero
 
+buildObjectJSON :: (JSON a, JSON b, JSON c) => a -> b -> c -> JSValue
+buildObjectJSON tm cm am = showJSON $ makeObj [ ("Transform", showJSON tm)
+                                              , ("Character", showJSON cm)
+                                              , ("Ai", showJSON am)
+                                              ]
+
+data Event = AttackEvent (GOiD, GOiD) Int
+           | DeathEvent GOiD
+           | KillEvent GOiD GOiD
+           | CharacterMovedEvent GOiD [Float]
+           | RequestCharacterCreationEvent String [Float]
+             deriving (Show, Read, Eq)
+
 getEventsFromInstance :: [String] -> Instance [Event]
 getEventsFromInstance eventsToLookFor = do
         s <- get
@@ -53,16 +55,10 @@ getEventsFromInstance eventsToLookFor = do
         -- then filter out all of the either empty lists or nonexistent event types (a.k.a values constructed with Nothing)
         return . join $ filter (not . null) [fromJust x | x <- evts, isJust x]
 
-buildObjectJSON :: (JSON a, JSON b, JSON c) => a -> b -> c -> JSValue
-buildObjectJSON tm cm am = showJSON $ makeObj [ ("Transform", showJSON tm)
-                                              , ("Character", showJSON cm)
-                                              , ("Ai", showJSON am)
-                                              ]
-
 pushEvent :: Event -> Instance ()
 pushEvent evt = insertEvent evt $ case evt of
-        (AttackEvent _)  -> eventTypeAttack
-        (DeathEvent _)   -> eventTypeDeath
+        (AttackEvent _ _)  -> eventTypeAttack
+        (DeathEvent _)     -> eventTypeDeath
         (KillEvent _ _)    -> eventTypeKill
     where insertEvent :: Event -> String -> Instance ()
           insertEvent evt typ = state $ \s ->
@@ -72,6 +68,10 @@ pushEvent evt = insertEvent evt $ case evt of
                       (Just curEvts) -> Map.insert typ (evt : curEvts) nextFrameEvents
                       otherwise      -> Map.insert typ [evt] nextFrameEvents
               in ((), s { getEvents = (currentFrameEvents, newEventList) })
+
+class ComponentCreator a where
+	createComponent :: GOiD -> JSValue -> a -> Either String a
+	update :: a -> Instance (Maybe String)
 
 type EventList = Map.Map String [Event]
 
@@ -117,7 +117,7 @@ data Faction = Betuol | Dunteg | Blitzal
                deriving (Show , Read, Eq, Ord)
 data SpellType = Melee | Fire | Earth | Frost | Air
                  deriving (Show, Read, Eq)
-data DamageType = DamageType Float SpellType
+data DamageType = DamageType Float [SpellType]
                  deriving (Show, Read, Eq)
 type Reputation = (Faction, Int)
 data CharacterEquipment = EmptyEquipment
@@ -138,11 +138,12 @@ damage char = case equipment char of
     (CharacterEquipment ce) -> let (DamageType damage _) = ce
                                in damage
     otherwise -> 0
+
 --
 -- AI
 --
 
-data AiComponent = Enemy | Passive
+data AiComponent = Enemy | Passive | Follow
                    deriving (Show, Read)
 type AiComputer = GOiD -> Instance ()
 newtype AiManager = AiManager (Map.Map GOiD AiComputer)

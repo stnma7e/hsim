@@ -1,6 +1,6 @@
 module Main where
 
-import Control.Monad.Trans.State       (state, execState, runState, get, put)
+import Control.Monad.Trans.State
 import qualified Numeric.Matrix as Mat
 import qualified Data.Map as Map
 import System.Random
@@ -27,11 +27,8 @@ maybeRead = fmap fst . listToMaybe . reads
 main :: IO ()
 main = do
     let (id, is) = flip runState emptyInstanceState $ do
-            s <- get
-            put $ s { randomNumGen = mkStdGen 1 }
-
             let objJSON = buildObjectJSON (TransformComponent Open (Mat.unit 4)) 
-                                          (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 10 Melee))
+                                          (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 5 [Melee, Frost]))
                                           Enemy
             playerId <- createObject objJSON
 
@@ -48,6 +45,9 @@ loop :: InstanceState -> [IO (Instance ())] -> IO (Instance ())
 loop is [] = return $ return ()
 loop is (scene1:sceneN) = do
     -- run one scene of our scene script
+    -- we have to lift execState into the IO monad so that it can accept
+    -- the IO script function, and so that it can operate within the IO
+    -- monad in loop.
     scene' <- liftM (flip execState is) scene1
 
     -- then parse commands and junk like normal
@@ -64,10 +64,9 @@ loop is (scene1:sceneN) = do
         -- ret is going to be a Left  : error value
         --                    a Right : "quit"
         --                    a Right : regular command needing IO
-        (com, reRunThisFrame) <- either (\x -> let x' = words x
-                                               in reRunFrameBecauseThereWasAnError is' (head x') (tail x'))
+        (com, reRunThisFrame) <- either (reRunFrameBecauseThereWasAnError is')
                                         (\x -> let x' = words x
-                                               in goToNextFrameNoError is' (head x') (tail x'))
+                                                in goToNextFrameNoError is' (head x') (tail x'))
                                         ret
 
         putStrLn ""
@@ -87,8 +86,8 @@ loop is (scene1:sceneN) = do
 
     where -- the command was not valid and were not going to update the scene
           -- this is a Either Left value
-          reRunFrameBecauseThereWasAnError :: InstanceState -> String -> [String] -> IO (String, Bool)
-          reRunFrameBecauseThereWasAnError is com _ = (const $ return (com, True)) =<< print com
+          reRunFrameBecauseThereWasAnError :: InstanceState -> String -> IO (String, Bool)
+          reRunFrameBecauseThereWasAnError is com = (const $ return (com, True)) =<< print com
 
           -- if the command is quit, then we do not want to re-run this frame
           -- otherwise we are dealing with a valid command,
@@ -165,8 +164,7 @@ handleInstanceResponse com args = case com of
     -- for commands that need to use IO
     -- this block will just let specified commands fall through
     -- to be evaluated in the calling function with access to IO
-    otherwise -> do
-        return $ if com `elem` commands
-                 then Right com
-                 else Left "not a command"
+    otherwise -> return $ if com `elem` commands
+                          then Right com
+                          else Left "not a command"
             where commands = ["quit", "show", "look"]

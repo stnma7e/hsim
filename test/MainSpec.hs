@@ -24,13 +24,9 @@ deadCharComponent = charComponent { health = 0 }
 
 startingInstance :: InstanceState
 startingInstance = flip execState emptyInstanceState $ do
-    s <- get
-    put $ s { randomNumGen = mkStdGen 1 }
-
     playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4))
                                                charComponent
                                                Enemy
-
     s <- get
     put $ s { player = playerId }
     return playerId
@@ -77,10 +73,10 @@ transformManagerSpec = describe "TransformManager" $ do
 characterManagerSpec = describe "CharacterManager" $ do
     context "attackComponent" $ do
         it "returns Miss when character has 0 health" $ do
-            let (hitmiss, _, _) = attackComponent (0, 0) (DamageType (damage charComponent) Melee) Torso randomGen
+            let (hitmiss, _, _) = attackComponent (0, 0) (DamageType (damage charComponent) [Melee]) Torso randomGen
             hitmiss `shouldBe` Miss
         it "returns a correct damage report when attacked" $ property $
-            \x y d rnd -> let (hitmiss', charHealth', _) = attackComponent (x, y) (DamageType d Melee) Torso (mkStdGen rnd) 
+            \x y d rnd -> let (hitmiss', charHealth', _) = attackComponent (x, y) (DamageType d [Melee]) Torso (mkStdGen rnd) 
                         in case hitmiss' of
                             (Hit damage) ->    damage == truncate d
                                             && charHealth' == y - truncate d
@@ -89,7 +85,7 @@ characterManagerSpec = describe "CharacterManager" $ do
     context "update" $ do
         it "will delete a component if its health has gone below 0" $ do
             let charId = 0
-                objJSON = showJSON $ CharacterComponent 0 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 10 Melee)
+                objJSON = showJSON $ CharacterComponent 0 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 10 [Melee])
                 comp = case readJSON objJSON of
                     (Ok comp')  -> comp'
                     (Error err) -> error err

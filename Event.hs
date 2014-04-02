@@ -27,8 +27,8 @@ buildEventJSON typ event = showJSON $ makeObj [(jsonTypeField, showJSON typ), (j
 
 instance JSON Event where
     readJSON = undefined
-    showJSON (AttackEvent (char1, char2)) =
-        buildEventJSON eventTypeAttack [("Char1", showJSON char1), ("Char2", showJSON char2)]
+    showJSON (AttackEvent (char1, char2) damage) =
+        buildEventJSON eventTypeAttack [("Char1", showJSON char1), ("Char2", showJSON char2), ("Damage", showJSON damage)]
     showJSON (RequestCharacterCreationEvent charType loc) =
         buildEventJSON eventTypeRequestCharacterCreation [("Type", showJSON charType), ("Location", showJSON loc)]
     showJSON (CharacterMovedEvent char loc) =
@@ -42,9 +42,10 @@ instance JSONEvent Event where
     getEvent (EventDescriptor eventType event) 
         | eventType == eventTypeAttack = 
             case readJSON event of
-                (Ok (JSObject obj)) -> let (Ok char1) = obj ! "Char1"
-                                           (Ok char2) = obj ! "Char2" 
-                                       in AttackEvent (char1,char2)
+                (Ok (JSObject obj)) -> let (Ok char1)  = obj ! "Char1"
+                                           (Ok char2)  = obj ! "Char2" 
+                                           (Ok damage) = obj ! "Damage"
+                                       in AttackEvent (char1,char2) damage
         | eventType == eventTypeRequestCharacterCreation =
             case readJSON event of
                 (Ok (JSObject obj)) -> let (Ok goid) = obj ! "Type"

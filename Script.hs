@@ -1,6 +1,7 @@
 module Script
 ( Script(..)
 , putLine
+, putDialouge
 ) where
 
 import Instance
@@ -11,3 +12,6 @@ class Script a where
 
 putLine :: String -> IO ()
 putLine s = putStrLn $ "\t" ++ s
+
+putDialouge :: String -> IO ()
+putDialouge s = putLine $ "-- " ++ show s

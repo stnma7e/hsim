@@ -29,10 +29,10 @@ emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (
 
 update :: Instance (Map.Map String [Event], Map.Map String [Event])
 update = do
-    (InstanceState _ tm _ _ _ _ _) <- get
-    tmErr <- Component.update tm
-    case tmErr of
-        (Just err) -> error $ "error when updating transform manager: " ++ err
+    (InstanceState _ _ _ am _ _ _) <- get
+    amErr <- Component.update am
+    case amErr of
+        (Just err) -> error $ "error when updating ai manager: " ++ err
         otherwise  -> return ()
 
     (InstanceState _ _ cm _ _ _ _) <- get
@@ -41,10 +41,10 @@ update = do
         (Just err) -> error $ "error when updating character manager: " ++ err
         otherwise  -> return ()
 
-    (InstanceState _ _ _ am _ _ _) <- get
-    amErr <- Component.update am
-    case amErr of
-        (Just err) -> error $ "error when updating ai manager: " ++ err
+    (InstanceState _ tm _ _ _ _ _) <- get
+    tmErr <- Component.update tm
+    case tmErr of
+        (Just err) -> error $ "error when updating transform manager: " ++ err
         otherwise  -> return ()
 
     s <- get

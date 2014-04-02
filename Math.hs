@@ -4,7 +4,7 @@ where
 import qualified Numeric.Matrix as Mat
 
 buildTranslationMatrix :: Mat.MatrixElement e => (Int,Int) -> [e] -> Mat.Matrix e
-buildTranslationMatrix dimensions vec = Mat.matrix dimensions (buildTranslation vec)
+buildTranslationMatrix dimensions = Mat.matrix dimensions . buildTranslation
 
 buildTranslation :: Mat.MatrixElement e => [e] -> (Int, Int) -> e
 buildTranslation vec (1,4) = vec!!0

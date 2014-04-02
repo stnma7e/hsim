@@ -15,17 +15,17 @@ import Math     (buildTranslationMatrix)
 data Scene1 = Scene1
 instance Script Scene1 where
     run (Scene1) = [ do
-            putLine "Hey. Hey you see that guy over there?"
-            putLine "He's probably up to something. Let's check it out."
-            putLine "Don't just stand there."
+            putLine "* A man comes running down the street. *"
+            putDialouge "The emperor has been killed. The emperor has been killed."
+            putDialouge "Don't just stand there."
             putLine "Use the `m` command to move around."
 
             return . state $ \s -> flip runState s $ do
                 createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0]))
-                                               (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 10 Melee))
-                                               Passive
+                                               (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 5 [Melee]))
+                                               Follow
                 createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0]))
-                                               (CharacterComponent 10 10 Dunteg [(Dunteg, 0)] (CharacterEquipment $ DamageType 10 Melee))
+                                               (CharacterComponent 10 10 Dunteg [(Dunteg, 0)] (CharacterEquipment $ DamageType 5 [Melee]))
                                                Passive
                 return ()
 
