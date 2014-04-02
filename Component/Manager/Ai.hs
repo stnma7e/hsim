@@ -58,28 +58,46 @@ getComputerFromJSON :: AiComponent -> AiComputer
 getComputerFromJSON computerType = case computerType of
     Enemy     -> enemyComputer
     Follow    -> followComputer
+    Guard     -> guardComputer
     Passive   -> \_ -> return ()
 
-enemyComputer :: AiComputer
-enemyComputer thisId = do
+attackClose :: GOiD -> Int -> (CharacterComponent -> CharacterComponent -> HitLocation) -> Instance ()
+attackClose thisId radiusToLook iShouldAttack = do
     s <- get
     let tm = transformManager s
         cm = characterManager s
         thisLoc = getObjectLoc thisId tm
-        -- lets look in all the spaces surrounding our location
-        placesToLook = zipWith (\(i1, i1') (i2, i2') -> (i1 + i2, i1' + i2'))
-            [(0,0), (-1,1), (0,1), (1,1), (-1,0), (1,0), (0,-1), (-1,-1), (1,-1)] (repeat thisLoc)
+        placesToLook = zipWith (\(i1, i1') (i2, i2') -> (i1 + i2, i1' + i2')) (repeat thisLoc) $
+            map (\(i1, i2) -> (i1 * radiusToLook, i2 * radiusToLook))
+                [(0,0), (-1,1), (0,1), (1,1), (-1,0), (1,0), (0,-1), (-1,-1), (1,-1)]
         closeObjects = filter (/= thisId) . filter (isCharacter cm) . map fst . join $ map (flip getObjectsAt tm) placesToLook
+
     foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects $ \idOfNearby ->
     -- begin ai computation
-        unless (not (isCharacter cm idOfNearby) ||
-                not (isCharacter cm thisId)) $ do
-            let char1 = getCharacter cm idOfNearby
+        when (isCharacter cm idOfNearby ||
+              isCharacter cm thisId) $
+            let char2 = getCharacter cm idOfNearby
                 (Just thisChar) = getCharacter cm thisId
-            case char1 of
+            in case char2 of
                 Nothing       -> return ()
-                (Just char1') -> when (health char1' <= health thisChar) $
-                                     void $ attackObject thisId idOfNearby Torso
+                (Just char2') -> attackObject thisId idOfNearby (iShouldAttack thisChar char2')
+                                 >> return ()
+
+
+guardComputer :: AiComputer
+guardComputer thisId =
+    attackClose thisId 3 $ \thisChar char2 ->
+        if faction char2 /= faction thisChar
+        then Torso
+        else DontHit
+
+enemyComputer :: AiComputer
+enemyComputer thisId =
+    -- lets look in all the spaces surrounding our location
+    attackClose thisId 1 $ \thisChar char2 ->
+        if health char2 <= health thisChar
+        then Torso
+        else DontHit
 
 followComputer :: AiComputer
 followComputer thisId = do

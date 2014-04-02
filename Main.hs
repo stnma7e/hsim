@@ -29,7 +29,7 @@ main = do
     let (id, is) = flip runState emptyInstanceState $ do
             let objJSON = buildObjectJSON (TransformComponent Open (Mat.unit 4)) 
                                           (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 5 [Melee, Frost]))
-                                          Enemy
+                                          Guard
             playerId <- createObject objJSON
 
             s <- get

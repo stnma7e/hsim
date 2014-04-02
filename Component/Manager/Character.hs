@@ -77,7 +77,7 @@ attackObject id1 id2 hitLoc = do
     let cm@(CharacterManager ids) = characterManager s
         char1 = Map.lookup id1 ids
         char2 = Map.lookup id2 ids
-    if isNothing char1 || isNothing char2
+    if isNothing char1 || isNothing char2 || hitLoc == DontHit
     then return Miss
     else let (Just char1') = char1
              (Just char2') = char2
@@ -116,9 +116,10 @@ attackComponent :: (Health, Health) -> DamageType -> HitLocation -> StdGen -> (A
 attackComponent (health1, health2) (DamageType damage1 _) hitLoc rnd =
     let (rndNum, newGen) = randomR (1, 100) rnd :: (Int, StdGen)
         damageDealt1 = truncate $ case hitLoc of
-            Head  -> if rndNum > 10 then 0 else damage1 * 2
-            Torso -> if rndNum > 90 then 0 else damage1
-            Legs  -> if rndNum > 70 then 0 else damage1 * 1.5
+            Head    -> if rndNum > 10 then 0 else damage1 * 2
+            Torso   -> if rndNum > 90 then 0 else damage1
+            Legs    -> if rndNum > 70 then 0 else damage1 * 1.5
+            DontHit -> 0
         hitMiss = if damageDealt1 > 0
                   then Hit damageDealt1
                   else Miss

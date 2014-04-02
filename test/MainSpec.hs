@@ -107,6 +107,13 @@ characterManagerSpec = describe "CharacterManager" $ do
         it "returns Miss when the character attacking another does not exist" $ do
             let (hitmiss, _) = flip runState startingInstance $ attackObject 123 200 Torso
             hitmiss `shouldBe` Miss
+        it "returns Miss when a DontHit attack location is given" $ do
+            let (hitmiss, _) = flip runState startingInstance $ do
+                createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4))
+                                               (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 5 [Melee]))
+                                               Passive
+                attackObject 0 1 DontHit
+            hitmiss `shouldBe` Miss
 
 
 instanceSpec = describe "Instance" $ do

@@ -114,8 +114,9 @@ data TransformManager = TransformManager
 -- Character
 --
 
-data HitLocation = Head | Torso | Legs
-                   deriving (Show, Read)
+data HitLocation = DontHit
+                 | Head | Torso | Legs
+                   deriving (Show, Read, Eq)
 data Faction = Betuol | Dunteg | Blitzal
                deriving (Show , Read, Eq, Ord)
 data SpellType = Melee | Fire | Earth | Frost | Air
@@ -146,7 +147,7 @@ damage char = case equipment char of
 -- AI
 --
 
-data AiComponent = Enemy | Passive | Follow
+data AiComponent = Enemy | Passive | Follow | Guard
                    deriving (Show, Read)
 type AiComputer = GOiD -> Instance ()
 newtype AiManager = AiManager (Map.Map GOiD AiComputer)
