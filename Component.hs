@@ -48,6 +48,9 @@ data Event = AttackEvent (GOiD, GOiD) Int
              deriving (Show, Read, Eq)
 
 getEventsFromInstance :: [String] -> Instance [Event]
+getEventsFromInstance [] =  do
+    s <- get
+    return . join . map snd $ Map.toList (fst $ getEvents s)
 getEventsFromInstance eventsToLookFor = do
         s <- get
         -- lets get a list of all the events we're going to look at
@@ -103,8 +106,8 @@ data TransformComponent = TransformComponent
 type ComponentMap = Map.Map GOiD TransformComponent
 type Grid = Map.Map (Int, Int) [GOiD]
 data TransformManager = TransformManager
-    { components       :: ComponentMap
-    , spatialPartition :: Grid
+    { matrices :: ComponentMap
+    , grid     :: Grid
     } deriving Show
 
 --

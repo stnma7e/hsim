@@ -59,18 +59,21 @@ getComputerFromJSON computerType = case computerType of
     Enemy     -> enemyComputer
     Follow    -> followComputer
     Passive   -> \_ -> return ()
-    
+
 enemyComputer :: AiComputer
 enemyComputer thisId = do
     s <- get
     let tm = transformManager s
         cm = characterManager s
-    let closeObjects = filter (isCharacter cm) . map fst $ getObjectsAt (getObjectLoc thisId tm) tm
+        thisLoc = getObjectLoc thisId tm
+        -- lets look in all the spaces surrounding our location
+        placesToLook = zipWith (\(i1, i1') (i2, i2') -> (i1 + i2, i1' + i2'))
+            [(0,0), (-1,1), (0,1), (1,1), (-1,0), (1,0), (0,-1), (-1,-1), (1,-1)] (repeat thisLoc)
+        closeObjects = filter (/= thisId) . filter (isCharacter cm) . map fst . join $ map (flip getObjectsAt tm) placesToLook
     foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects $ \idOfNearby ->
     -- begin ai computation
         unless (not (isCharacter cm idOfNearby) ||
-                not (isCharacter cm thisId)     ||
-                thisId == idOfNearby) $ do
+                not (isCharacter cm thisId)) $ do
             let char1 = getCharacter cm idOfNearby
                 (Just thisChar) = getCharacter cm thisId
             case char1 of

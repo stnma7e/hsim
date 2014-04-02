@@ -48,7 +48,7 @@ instance ComponentCreator TransformManager where
             (Error err) -> error $ "creating transform component: " ++ err
 
     update _ = do
-        evts <- getEventsFromInstance ["characterMoved"]
+        evts <- getEventsFromInstance ["characterMoved", "death"]
         updateFromEvents evts
         return Nothing
 
@@ -59,7 +59,7 @@ updateFromEvents (evt:evts) = do
         (CharacterMovedEvent id loc) -> do
             s <- get
             let (TransformManager mats _) = transformManager s
-            let mat = Map.lookup id mats
+                mat = Map.lookup id mats
             mat' <- case mat of
                     (Just (TransformComponent objType mat'')) -> return mat''
                     -- if we don't already have any information for this object, then make a new one and update it
@@ -67,6 +67,12 @@ updateFromEvents (evt:evts) = do
                     -- type information, etc.
                     Nothing -> return $ Mat.unit 4
             moveObject id (mat' `Mat.times` Mat.fromList [loc])
+        (DeathEvent goid) -> do
+            s <- get
+            let tm = transformManager s
+            put $ s { transformManager = tm { matrices = Map.delete goid (matrices tm)
+                                            , grid     = updateGrid goid (getObjectLoc goid tm) Delete (grid tm) } }
+            return Nothing
         otherwise -> return Nothing
     updateFromEvents evts 
 
