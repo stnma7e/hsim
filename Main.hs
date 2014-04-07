@@ -3,18 +3,12 @@ module Main where
 import Control.Monad.Trans.State
 import qualified Numeric.Matrix as Mat
 import qualified Data.Map as Map
-import System.Random
-import Data.List
 import Data.Maybe
 import Control.Monad
 
 import Instance
-import Event
 import Math
 import Component hiding (update)
-import Component.Manager.Transform
-import Component.Manager.Character
-import Component.Manager.Ai
 import Script
 import Script.Scene1
 
@@ -26,23 +20,23 @@ maybeRead = fmap fst . listToMaybe . reads
 
 main :: IO ()
 main = do
-    let (id, is) = flip runState emptyInstanceState $ do
+    let is = flip execState emptyInstanceState $ do
             let objJSON = buildObjectJSON (TransformComponent Open (Mat.unit 4)) 
                                           (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 5 [Melee, Frost]))
                                           Guard
             playerId <- createObject objJSON
 
             s <- get
-            put $ s { player = playerId }
+            put $ s { getInstancePlayer = playerId }
 
-            update
+            _ <- update
             return playerId
     
-    loop is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
+    _ <- loop is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
     return ()
 
 loop :: InstanceState -> [IO (Instance ())] -> IO (Instance ())
-loop is [] = return $ return ()
+loop _ [] = return $ return ()
 loop is (scene1:sceneN) = do
     -- run one scene of our scene script
     -- we have to lift execState into the IO monad so that it can accept
@@ -87,28 +81,28 @@ loop is (scene1:sceneN) = do
     where -- the command was not valid and were not going to update the scene
           -- this is a Either Left value
           reRunFrameBecauseThereWasAnError :: InstanceState -> String -> IO (String, Bool)
-          reRunFrameBecauseThereWasAnError is com = (const $ return (com, True)) =<< print com
+          reRunFrameBecauseThereWasAnError _ com = (const $ return (com, True)) =<< print com
 
           -- if the command is quit, then we do not want to re-run this frame
-          -- otherwise we are dealing with a valid command,
+          -- _ we are dealing with a valid command,
           -- but, we still do not want to re-run the frame
           -- this is a Either Right value
           goToNextFrameNoError :: InstanceState -> String -> [String] -> IO (String, Bool)
-          goToNextFrameNoError is com args = (const $ return (com, False)) =<< case com of
-              "show"  -> print is
-              "look"  -> let tm = transformManager is
+          goToNextFrameNoError is' com args = (const $ return (com, False)) =<< case com of
+              "show"  -> print is'
+              "look"  -> let tm = transformManager is'
                          in do
-                             putStrLn . (++) "Exits: " . show $ getExits (getObjectLoc (player is) tm) tm
+                             putStrLn . (++) "Exits: " . show $ getExits (getObjectLoc (getInstancePlayer is') tm) tm
                              -- print out the ids of the objects in this space
-                             print . filter (/= player is) . map fst . flip getObjectsAt (transformManager is) $
-                                getObjectLoc (player is) (transformManager is)
-              "m"     -> let (TransformManager mats _) = transformManager is
-                             (Just (TransformComponent objType mat)) = Map.lookup (player is) mats
+                             print . filter (/= getInstancePlayer is') . map fst . flip getObjectsAt (transformManager is') $
+                                getObjectLoc (getInstancePlayer is') (transformManager is')
+              "m"     -> let (TransformManager mats _) = transformManager is'
+                             (Just (TransformComponent _ mat)) = Map.lookup (getInstancePlayer is') mats
                          in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
               "a"     -> if length args < 1
                          then error "no return from attackObject"
                          else print $ head args
-              otherwise -> return ()
+              _ -> return ()
 
 handleInstanceResponse :: String -> [String] -> Instance (Either String String)
 handleInstanceResponse com args = case com of
@@ -124,8 +118,8 @@ handleInstanceResponse com args = case com of
                                                              computerType
                                   createObjectSpecificID idToMake json
                                   return $ Right com
-                              otherwise -> return $ Left "invalid ai type"
-                          otherwise -> return $ Left "invalid id to create"
+                              _ -> return $ Left "invalid ai type"
+                          _ -> return $ Left "invalid id to create"
     -- movement command
     -- takes 1 argument of direction to move
     "m"       -> do
@@ -133,21 +127,21 @@ handleInstanceResponse com args = case com of
         if length args < 1
         then return $ Left "not enough arguments for `m` command"
         else let (TransformManager mats _) = transformManager s
-                 (Just (TransformComponent objType mat)) = Map.lookup (player s) mats
+                 (Just (TransformComponent _ mat)) = Map.lookup (getInstancePlayer s) mats
                  direction = case args !! 0 of
                      "n" -> [ 1,  0,  0]
                      "s" -> [-1,  0,  0]
                      "e" -> [ 0,  0,  1]
                      "w" -> [ 0,  0, -1]
-                     otherwise -> []
+                     _ -> []
             in if null direction
                then return . Left $ "`" ++ args !! 0 ++ "` is not a valid direction."
                else do
-                   s <- get
-                   err <- moveObject (player s) (mat `Mat.times` buildTranslationMatrix (4,4) direction)
+                   s' <- get
+                   err <- moveObject (getInstancePlayer s') (mat `Mat.times` buildTranslationMatrix (4,4) direction)
                    return $ case err of
                        (Just err') -> Left err'
-                       otherwise   -> Right com
+                       _   -> Right com
     -- attack command
     -- takes 1 argument of ID for player to attack
     "a"       -> if length args < 2
@@ -157,14 +151,14 @@ handleInstanceResponse com args = case com of
                      case maybeRead $ args !! 0 of
                         (Just idToAttack) -> case maybeRead $ args !! 1 of
                             (Just loc) -> do
-                                hitmiss <- attackObject (player s) idToAttack loc
+                                hitmiss <- attackObject (getInstancePlayer s) idToAttack loc
                                 return . Right $ com ++ " " ++ show hitmiss
-                            otherwise -> return $ Left "cannot read hit location"
-                        otherwise -> return $ Left "cannot read id to attack"
+                            _ -> return $ Left "cannot read hit location"
+                        _ -> return $ Left "cannot read id to attack"
     -- for commands that need to use IO
     -- this block will just let specified commands fall through
     -- to be evaluated in the calling function with access to IO
-    otherwise -> return $ if com `elem` commands
+    _ -> return $ if com `elem` commands
                           then Right com
                           else Left "not a command"
             where commands = ["quit", "show", "look"]

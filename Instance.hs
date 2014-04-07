@@ -1,6 +1,6 @@
 module Instance
-( Component.Instance(..)
-, Component.InstanceState(..)
+( Component.Instance
+, Component.InstanceState
 , emptyInstanceState
 , Instance.update
 , createObject
@@ -10,19 +10,12 @@ module Instance
 
 import Control.Monad.Trans.State       (state, get, put, execState)
 import qualified Data.Map as Map
-import qualified Numeric.Matrix as Mat
 import Text.JSON
-import Control.Monad
 import Data.List
-import Data.Maybe
 import System.Random
 
 import Event
-import Common
 import Component
-import Component.Manager.Transform
-import Component.Manager.Character
-import Component.Manager.Ai
 
 emptyInstanceState :: InstanceState
 emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) (AiManager Map.empty) (Map.empty, Map.empty) [0..100] (mkStdGen 0)
@@ -33,19 +26,19 @@ update = do
     amErr <- Component.update am
     case amErr of
         (Just err) -> error $ "error when updating ai manager: " ++ err
-        otherwise  -> return ()
+        _  -> return ()
 
     (InstanceState _ _ cm _ _ _ _) <- get
     cmErr <- Component.update cm
     case cmErr of
         (Just err) -> error $ "error when updating character manager: " ++ err
-        otherwise  -> return ()
+        _  -> return ()
 
     (InstanceState _ tm _ _ _ _ _) <- get
     tmErr <- Component.update tm
     case tmErr of
         (Just err) -> error $ "error when updating transform manager: " ++ err
-        otherwise  -> return ()
+        _  -> return ()
 
     s <- get
     let (currentFrameEvents, nextFrameEvents) = getEvents s
@@ -53,10 +46,10 @@ update = do
     return (currentFrameEvents, nextFrameEvents)
 
 createObject :: JSValue -> Instance GOiD
-createObject objData = state $ \s -> 
-    let id = head (availiableIDS s)
-        s' = execState (createObjectSpecificID id objData) s
-    in (id, s' { availiableIDS = delete id (availiableIDS s') } )
+createObject objData = state $ \s ->
+    let goid = head (availiableIDS s)
+        s' = execState (createObjectSpecificID goid objData) s
+    in (goid, s' { availiableIDS = delete goid (availiableIDS s') } )
 
 createObjectSpecificID :: GOiD -> JSValue -> Instance ()
 createObjectSpecificID idToMake objData = state $ \s@(InstanceState _ tm cm am _ _ _) ->
