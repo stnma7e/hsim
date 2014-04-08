@@ -1,5 +1,8 @@
 module Component.Manager.Transform
-( moveObject
+( TransformManager(..)
+, TransformComponent(..)
+, ObjectType(..)
+, moveObject
 , getGridXY
 , getExits
 , getObjectLoc
@@ -20,6 +23,23 @@ import Data.Maybe
 import Component
 import Common
 import Math
+
+data ObjectType = Blocked | Open
+                  deriving (Show , Read, Eq)
+
+data TransformComponent = TransformComponent
+    { objType   :: ObjectType
+    , getMatrix :: Mat.Matrix Float
+    } deriving (Show, Eq)
+
+type ComponentMap = Map.Map GOiD TransformComponent
+
+type Grid = Map.Map (Int, Int) [GOiD]
+
+data TransformManager = TransformManager
+    { matrices :: ComponentMap
+    , grid     :: Grid
+    } deriving Show
 
 instance JSON TransformComponent where
     showJSON (TransformComponent objType mat) = showJSON $ makeObj [

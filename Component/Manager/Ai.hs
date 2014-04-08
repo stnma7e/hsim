@@ -1,20 +1,32 @@
 module Component.Manager.Ai
-( getComputerFromJSON
+( AiManager(..)
+, AiComponent(..)
+, AiComputer
+, getComputerFromJSON
 ) where
 
 import Text.JSON
 import Control.Monad
-import Control.Monad.Trans.State (state, get, put)
+import Control.Monad.Trans.State
 import Control.Applicative
 import qualified Data.Map as Map
 import qualified Numeric.Matrix as Mat
 import Data.Function
+import Debug.Trace
 
+import Component
 import Component.Manager.Transform
 import Component.Manager.Character
-import Component
 import Common
 import Math
+
+data AiComponent = Enemy | Passive | Follow | Guard
+                   deriving (Show, Read)
+
+type AiComputer = GOiD -> InstanceState TransformManager CharacterManager AiManager -> AiManager
+
+newtype AiManager = AiManager (Map.Map GOiD AiComputer)
+                    deriving Show
 
 instance JSON AiComponent where
     showJSON computerType = showJSON $ makeObj
@@ -51,7 +63,9 @@ instance ComponentCreator AiManager where
 
         s <- get
         let (AiManager comps) = aiManager s
-        Map.foldrWithKey (\id comp acc -> acc >> comp id) (return ()) comps
+        let s' = Map.foldlWithKey' (\acc id comp -> acc { aiManager = comp id acc} ) s comps
+        trace (show s') (return ())
+        put s'
         return Nothing
 
 getComputerFromJSON :: AiComponent -> AiComputer
@@ -59,7 +73,7 @@ getComputerFromJSON computerType = case computerType of
     Enemy     -> enemyComputer
     Follow    -> followComputer
     Guard     -> guardComputer
-    Passive   -> \_ -> return ()
+    Passive   -> const aiManager
 
 attackClose :: GOiD -> Int -> (CharacterComponent -> CharacterComponent -> HitLocation) -> Instance ()
 attackClose thisId radiusToLook iShouldAttack = do
@@ -73,26 +87,23 @@ attackClose thisId radiusToLook iShouldAttack = do
         closeObjects = filter (/= thisId) . filter (isCharacter cm) . map fst . join $ map (flip getObjectsAt tm) placesToLook
 
     foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects $ \idOfNearby ->
-    -- begin ai computation
         when (isCharacter cm idOfNearby ||
               isCharacter cm thisId) $
             let char2 = getCharacter cm idOfNearby
                 (Just thisChar) = getCharacter cm thisId
             in case char2 of
                 Nothing       -> return ()
-                (Just char2') -> attackObject thisId idOfNearby (iShouldAttack thisChar char2')
-                                 >> return ()
-
+                (Just char2') -> void $ attackObject thisId idOfNearby (iShouldAttack thisChar char2')
 
 guardComputer :: AiComputer
-guardComputer thisId =
+guardComputer thisId is = aiManager . flip execState is $
+    -- lets look in all spaces within three moves of us
     attackClose thisId 3 $ \thisChar char2 ->
         if faction char2 /= faction thisChar
         then Torso
         else DontHit
-
 enemyComputer :: AiComputer
-enemyComputer thisId =
+enemyComputer thisId is = aiManager . flip execState is $
     -- lets look in all the spaces surrounding our location
     attackClose thisId 1 $ \thisChar char2 ->
         if health char2 <= health thisChar
@@ -100,9 +111,9 @@ enemyComputer thisId =
         else DontHit
 
 followComputer :: AiComputer
-followComputer thisId = do
+followComputer thisId is = aiManager . flip execState is $ do
     s <- get
-    let player = (Component.player s)
+    let player = Component.player s
         tm = transformManager s
     unless (getObjectLoc player tm == getObjectLoc thisId tm) $ do
         let playerLoc   = getObjectMatrix player tm `Mat.times` Mat.fromList [[0],[0],[0],[1]]

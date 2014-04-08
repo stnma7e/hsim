@@ -11,6 +11,9 @@ import System.Random
 import Data.Maybe
 
 import Common
+import {-# SOURCE #-} Component.Manager.Transform
+import {-# SOURCE #-} Component.Manager.Character
+import {-# SOURCE #-} Component.Manager.Ai
 
 eventTypeAttack                   = "attack"
 eventTypeDeath                    = "death"
@@ -18,13 +21,12 @@ eventTypeKill                     = "kill"
 eventTypeCharacterMoved           = "characterMoved"
 eventTypeRequestCharacterCreation = "requestCharacterCreation"
 
-type GOiD = Int
-
 data GameObjectJSON = GameObjectJSON
     { transform :: JSValue
     , character :: JSValue
     , ai        :: JSValue
     }
+
 instance JSON GameObjectJSON where
     showJSON = undefined
     readJSON (JSObject obj) = do
@@ -49,6 +51,8 @@ data Event = AttackEvent (GOiD, GOiD) Int
 
 getEventsFromInstance :: [String] -> Instance [Event]
 getEventsFromInstance [] =  do
+    -- if the list of types to get is empty
+    -- then we will return all events
     s <- get
     return . join . map snd $ Map.toList (fst $ getEvents s)
 getEventsFromInstance eventsToLookFor = do
@@ -73,82 +77,18 @@ pushEvent evt = insertEvent evt $ case evt of
               in ((), s { getEvents = (currentFrameEvents, newEventList) })
 
 class ComponentCreator a where
-	createComponent :: GOiD -> JSValue -> a -> Either String a
-	update :: a -> Instance (Maybe String)
+    createComponent :: GOiD -> JSValue -> a -> Either String a
+    update :: a -> Instance (Maybe String)
 
 type EventList = Map.Map String [Event]
 
-type Instance = State InstanceState
-data InstanceState = InstanceState
+type Instance = State (InstanceState TransformManager CharacterManager AiManager)
+data InstanceState a b c = InstanceState
     { player           :: GOiD
-    , transformManager :: TransformManager
-    , characterManager :: CharacterManager
-    , aiManager        :: AiManager
+    , transformManager :: a
+    , characterManager :: b
+    , aiManager        :: c
     , getEvents        :: (EventList, EventList)
     , availiableIDS    :: [GOiD]
     , randomNumGen     :: StdGen
     } deriving Show
-
--------------------------------------
--- Managers --
--------------------------------------
-
---
--- Transform
---
-
-data ObjectType = Blocked | Open
-                  deriving (Show , Read, Eq)
-data TransformComponent = TransformComponent
-    { objType   :: ObjectType
-    , getMatrix :: Mat.Matrix Float
-    } deriving (Show, Eq)
-type ComponentMap = Map.Map GOiD TransformComponent
-type Grid = Map.Map (Int, Int) [GOiD]
-data TransformManager = TransformManager
-    { matrices :: ComponentMap
-    , grid     :: Grid
-    } deriving Show
-
---
--- Character
---
-
-data HitLocation = DontHit
-                 | Head | Torso | Legs
-                   deriving (Show, Read, Eq)
-data Faction = Betuol | Dunteg | Blitzal
-               deriving (Show , Read, Eq, Ord)
-data SpellType = Melee | Fire | Earth | Frost | Air
-                 deriving (Show, Read, Eq)
-data DamageType = DamageType Float [SpellType]
-                 deriving (Show, Read, Eq)
-type Reputation = (Faction, Int)
-data CharacterEquipment = EmptyEquipment
-                        | CharacterEquipment
-    { weapon :: DamageType
-    } deriving (Show, Read, Eq)
-data CharacterComponent = CharacterComponent
-    { health  :: Int
-    , mana    :: Int
-    , faction :: Faction
-    , rep     :: [Reputation]
-    , equipment :: CharacterEquipment
-    } deriving (Show, Eq)
-newtype CharacterManager = CharacterManager (Map.Map GOiD CharacterComponent)
-                           deriving Show
-damage :: CharacterComponent -> Float
-damage char = case equipment char of
-    (CharacterEquipment ce) -> let (DamageType damage _) = ce
-                               in damage
-    otherwise -> 0
-
---
--- AI
---
-
-data AiComponent = Enemy | Passive | Follow | Guard
-                   deriving (Show, Read)
-type AiComputer = GOiD -> Instance ()
-newtype AiManager = AiManager (Map.Map GOiD AiComputer)
-                    deriving Show

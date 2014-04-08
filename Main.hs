@@ -41,7 +41,7 @@ main = do
     loop is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
     return ()
 
-loop :: InstanceState -> [IO (Instance ())] -> IO (Instance ())
+loop :: InstanceState TransformManager CharacterManager AiManager -> [IO (Instance ())] -> IO (Instance ())
 loop is [] = return $ return ()
 loop is (scene1:sceneN) = do
     -- run one scene of our scene script
@@ -69,7 +69,7 @@ loop is (scene1:sceneN) = do
                                                 in goToNextFrameNoError is' (head x') (tail x'))
                                         ret
 
-        putStrLn ""
+        putStr "\n"
 
         if com == "quit"
         then return . state $ const ((), is')
@@ -86,14 +86,14 @@ loop is (scene1:sceneN) = do
 
     where -- the command was not valid and were not going to update the scene
           -- this is a Either Left value
-          reRunFrameBecauseThereWasAnError :: InstanceState -> String -> IO (String, Bool)
+          reRunFrameBecauseThereWasAnError :: InstanceState TransformManager CharacterManager AiManager -> String -> IO (String, Bool)
           reRunFrameBecauseThereWasAnError is com = (const $ return (com, True)) =<< print com
 
           -- if the command is quit, then we do not want to re-run this frame
           -- otherwise we are dealing with a valid command,
           -- but, we still do not want to re-run the frame
           -- this is a Either Right value
-          goToNextFrameNoError :: InstanceState -> String -> [String] -> IO (String, Bool)
+          goToNextFrameNoError :: InstanceState TransformManager CharacterManager AiManager -> String -> [String] -> IO (String, Bool)
           goToNextFrameNoError is com args = (const $ return (com, False)) =<< case com of
               "show"  -> print is
               "look"  -> let tm = transformManager is

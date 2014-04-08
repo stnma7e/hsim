@@ -24,7 +24,7 @@ import Component.Manager.Transform
 import Component.Manager.Character
 import Component.Manager.Ai
 
-emptyInstanceState :: InstanceState
+emptyInstanceState :: InstanceState TransformManager CharacterManager AiManager
 emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) (AiManager Map.empty) (Map.empty, Map.empty) [0..100] (mkStdGen 0)
 
 update :: Instance (Map.Map String [Event], Map.Map String [Event])

@@ -1,6 +1,14 @@
 module Component.Manager.Character
-( AttackType(..)
+( CharacterManager(..)
+, CharacterComponent(..)
+, HitLocation(..)
+, Faction(..)
+, DamageType(..)
+, Reputation(..)
+, CharacterEquipment(..)
+, AttackType(..)
 , SpellType(..)
+, damage
 , attackObject
 , attackComponent
 , isCharacter
@@ -19,6 +27,43 @@ import System.Random
 
 import Component
 import Common
+
+data HitLocation = DontHit
+                 | Head | Torso | Legs
+                   deriving (Show, Read, Eq)
+
+data Faction = Betuol | Dunteg | Blitzal
+               deriving (Show , Read, Eq, Ord)
+
+data SpellType = Melee | Fire | Earth | Frost | Air
+                 deriving (Show, Read, Eq)
+
+data DamageType = DamageType Float [SpellType]
+                 deriving (Show, Read, Eq)
+
+type Reputation = (Faction, Int)
+
+data CharacterEquipment = EmptyEquipment
+                        | CharacterEquipment
+    { weapon :: DamageType
+    } deriving (Show, Read, Eq)
+
+data CharacterComponent = CharacterComponent
+    { health  :: Int
+    , mana    :: Int
+    , faction :: Faction
+    , rep     :: [Reputation]
+    , equipment :: CharacterEquipment
+    } deriving (Show, Eq)
+
+newtype CharacterManager = CharacterManager (Map.Map GOiD CharacterComponent)
+                           deriving Show
+
+damage :: CharacterComponent -> Float
+damage char = case equipment char of
+    (CharacterEquipment ce) -> let (DamageType damage _) = ce
+                               in damage
+    otherwise -> 0
 
 data AttackType = Hit Int | Miss
                   deriving (Show, Read, Eq)
