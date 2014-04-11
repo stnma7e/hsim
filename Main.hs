@@ -11,6 +11,9 @@ import Math
 import Component hiding (update)
 import Script
 import Script.Scene1
+import Component.Manager.Transform
+import Component.Manager.Character
+import Component.Manager.Ai
 
 -- taken from Hackage
 -- package: cgi

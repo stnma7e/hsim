@@ -17,6 +17,9 @@ import System.Random
 
 import Event
 import Component
+import Component.Manager.Transform
+import Component.Manager.Character
+import Component.Manager.Ai
 
 emptyInstanceState :: InstanceState
 emptyInstanceState = InstanceState { getInstancePlayer = -1

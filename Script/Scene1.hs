@@ -8,7 +8,10 @@ import qualified Numeric.Matrix as Mat
 import Script
 import Component
 import Instance
-import Math     (buildTranslationMatrix)
+import Math
+import Component.Manager.Transform
+import Component.Manager.Character
+import Component.Manager.Ai
 
 data Scene1 = Scene1
 instance Script Scene1 where
