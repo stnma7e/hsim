@@ -11,6 +11,9 @@ import Text.JSON
 import Instance
 import Math
 import Component
+import Component.Manager.Transform
+import Component.Manager.Character
+import Component.Manager.Ai
 
 main :: IO ()
 main = hspec spec
@@ -48,12 +51,12 @@ transformManagerSpec = describe "TransformManager" $ do
             let mat = buildTranslationMatrix (4,4) [3,92,4]
             let (obj, s) = flip runState startingInstance $ do
                 createObject $ buildObjectJSON (TransformComponent Blocked mat) charComponent Passive
-            let isBlocked = obj `elem` checkCollision (getGridXY mat) (transformManager s)
+            let isBlocked = obj `elem` checkCollision (getGridXY mat) (getManager Transform s)
             isBlocked `shouldBe` True
 
     context "getObjectLoc" $ do
         it "returns correct grid (X, Y) for a component" $ do
-            let xy = getObjectLoc (getInstancePlayer startingInstance) (transformManager startingInstance)
+            let xy = getObjectLoc (getInstancePlayer startingInstance) (getManager Transform startingInstance)
             xy `shouldBe` (0, 0)
 
     context "moveObject" $ do
@@ -62,7 +65,7 @@ transformManagerSpec = describe "TransformManager" $ do
             let ((err, maybePlayerLocation), _) = flip runState s $ do
                 err' <- moveObject (getInstancePlayer s) (buildTranslationMatrix (4,4) [1,0,0])
                 s' <- get
-                let objs = getObjectsAt (1, 0) (transformManager s')
+                let objs = getObjectsAt (1, 0) (getManager Transform s')
                 return (err', lookup (getInstancePlayer s') objs)
             err `shouldBe` Nothing
             maybePlayerLocation `shouldBe` Just (TransformComponent Open (buildTranslationMatrix (4,4) [1,0,0]))
@@ -91,13 +94,13 @@ characterManagerSpec = describe "CharacterManager" $ do
                     (Right cc') -> cc'
                     (Left err) -> error err
             getCharacter cc charId `shouldBe` Just comp
-            let is = flip execState (emptyInstanceState { characterManager = cc }) $ do
+            let is = flip execState (putManager Character (ComponentManager cc) emptyInstanceState ) $ do
                 -- first checks for dead and pushes an event
                 _ <- Instance.update
                 -- second update will delete the component
                 _ <- Instance.update
                 return ()
-            getCharacter (characterManager is) charId `shouldBe` Nothing
+            getCharacter (getManager Character is) charId `shouldBe` Nothing
 
     context "attackObject" $ do
         it "returns Miss when the character being attacked does not exist" $ do

@@ -1,7 +1,6 @@
 module Component.Manager.Transform
 ( TransformManager(..)
 , TransformComponent(..)
-, transformManager
 
 , moveObject
 , ObjectOccupancy(..)
@@ -11,23 +10,21 @@ module Component.Manager.Transform
 , getObjectsAt
 
 , getExits
+
+-- Testing
+, getGridXY
+, checkCollision
 ) where
 
 import Control.Monad.Trans.State
 import Text.JSON
 import Control.Monad
 import Control.Applicative
-import Unsafe.Coerce
 import qualified Data.Map as Map
 import qualified Numeric.Matrix as Mat
 
 import Component
 import Common
-
-transformManager :: InstanceState -> TransformManager
-transformManager is = case lookup Transform $ managers is of
-                          (Just (ComponentManager a)) -> unsafeCoerce a
-                          _ -> error "here3"
 
 data ObjectOccupancy = Blocked | Open
                 deriving (Show , Read, Eq)
@@ -82,7 +79,7 @@ updateTransformManagerFromEvents (evt:evts) = do
     err <- case evt of
         (CharacterMovedEvent goid loc) -> do
             s <- get
-            let (TransformManager mats _) = transformManager s
+            let (TransformManager mats _) = getManager Transform s
                 mat = Map.lookup goid mats
             mat' <- case mat of
                     (Just (TransformComponent _ mat'')) -> return mat''
@@ -93,7 +90,7 @@ updateTransformManagerFromEvents (evt:evts) = do
             moveObject goid (mat' `Mat.times` Mat.fromList [loc])
         (DeathEvent goid) -> do
             s <- get
-            let tm = transformManager s
+            let tm = getManager Transform s
             let tm' = tm { getMatrices = Map.delete goid (getMatrices tm)
                          , getGrid     = updateGrid goid (getObjectLoc goid tm) Delete (getGrid tm)
                          }
@@ -126,7 +123,7 @@ getObjectLoc goid (TransformManager mats _) = let (Just comp) = Map.lookup goid 
 moveObject :: GOiD -> Mat.Matrix Float -> Instance (Maybe String)
 moveObject  goid newLoc = do
     s <- get
-    let tm@(TransformManager mats grid) = transformManager s
+    let tm@(TransformManager mats grid) = getManager Transform s
         obj = Map.lookup goid mats
     maybe (return . Just $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved")
           (const $ let tc  = Map.lookup goid mats
@@ -142,9 +139,9 @@ moveObject  goid newLoc = do
                                        gridWithOldDeleted = updateGrid goid oldLoc Delete grid
                                        grid' = updateGrid goid loc Insert gridWithOldDeleted
                                    in do
-                                       let tm' = (transformManager s) { getMatrices = Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats
-                                                                      , getGrid     = grid'
-                                                                      }
+                                       let tm' = (getManager Transform s) { getMatrices = Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats
+                                                                          , getGrid     = grid'
+                                                                          }
                                        put $ putManager Transform (ComponentManager tm') s
                                        return Nothing
                    in maybe (return . Just $ "no matrix for component when moving; GOiD: " ++ show goid)

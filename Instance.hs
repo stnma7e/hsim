@@ -34,19 +34,19 @@ emptyInstanceState = InstanceState { getInstancePlayer = -1
 
 update :: Instance (Map.Map String [Event], Map.Map String [Event])
 update = do
-    am <- liftM aiManager get
+    am <- liftM (getManager Ai) get :: Instance AiManager
     amErr <- Component.update am
     case amErr of
         (Just err) -> error $ "error when updating ai manager: " ++ err
         _  -> return ()
 
-    cm <- liftM characterManager get
+    cm <- liftM (getManager Character) get :: Instance CharacterManager
     cmErr <- Component.update cm
     case cmErr of
         (Just err) -> error $ "error when updating character manager: " ++ err
         _  -> return ()
 
-    tm <- liftM transformManager get
+    tm <- liftM (getManager Transform) get :: Instance TransformManager
     tmErr <- Component.update tm
     case tmErr of
         (Just err) -> error $ "error when updating transform manager: " ++ err
@@ -65,9 +65,9 @@ createObject objData = state $ \s ->
 
 createObjectSpecificID :: GOiD -> JSValue -> Instance ()
 createObjectSpecificID idToMake objData = state $ \s ->
-        let tm = transformManager s
-            cm = characterManager s
-            am = aiManager s
+        let tm = getManager Transform s :: TransformManager
+            cm = getManager Character s :: CharacterManager
+            am = getManager Ai s        :: AiManager
             jsonObj = readJSON objData :: Result GameObjectJSON
         in case jsonObj of
             (Ok (GameObjectJSON jsonTm jsonCm jsonAm)) -> let is1 = putManager Transform (ComponentManager $ createObjectForManager idToMake jsonTm tm) s

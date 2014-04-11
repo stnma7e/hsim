@@ -93,13 +93,13 @@ loop is (scene1:sceneN) = do
           goToNextFrameNoError :: InstanceState -> String -> [String] -> IO (String, Bool)
           goToNextFrameNoError is' com args = (const $ return (com, False)) =<< case com of
               "show"  -> print is'
-              "look"  -> let tm = transformManager is'
+              "look"  -> let tm = getManager Transform is'
                          in do
                              putStrLn . (++) "Exits: " . show $ getExits (getObjectLoc (getInstancePlayer is') tm) tm
                              -- print out the ids of the objects in this space
-                             print . filter (/= getInstancePlayer is') . map fst . flip getObjectsAt (transformManager is') $
-                                getObjectLoc (getInstancePlayer is') (transformManager is')
-              "m"     -> let (TransformManager mats _) = transformManager is'
+                             print . filter (/= getInstancePlayer is') . map fst . flip getObjectsAt (getManager Transform is') $
+                                getObjectLoc (getInstancePlayer is') (getManager Transform is')
+              "m"     -> let (TransformManager mats _) = getManager Transform is'
                              (Just (TransformComponent _ mat)) = Map.lookup (getInstancePlayer is') mats
                          in print [mat `Mat.at` (1,4), mat `Mat.at` (2,4), mat `Mat.at` (3,4)]
               "a"     -> if length args < 1
@@ -129,7 +129,7 @@ handleInstanceResponse com args = case com of
         s <- get
         if length args < 1
         then return $ Left "not enough arguments for `m` command"
-        else let (TransformManager mats _) = transformManager s
+        else let (TransformManager mats _) = getManager Transform s
                  (Just (TransformComponent _ mat)) = Map.lookup (getInstancePlayer s) mats
                  direction = case args !! 0 of
                      "n" -> [ 1,  0,  0]

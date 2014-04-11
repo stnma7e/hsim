@@ -127,13 +127,16 @@ data InstanceState = InstanceState
 
 putManager :: ComponentType -> ComponentManager -> InstanceState -> InstanceState
 putManager typ manager is = is { managers = replace (typ, manager) [] (managers is) }
-    where replace :: (ComponentType, ComponentManager) -> [(ComponentType, ComponentManager)] -> [(ComponentType, ComponentManager)] -> [(ComponentType, ComponentManager)]
+    where replace :: (ComponentType, ComponentManager)
+                  -> [(ComponentType, ComponentManager)]
+                  -> [(ComponentType, ComponentManager)]
+                  -> [(ComponentType, ComponentManager)]
           replace man ms [] = ms ++ [man]
           replace man mss (m:ms) = if fst m == fst man
                                        then mss ++ man:ms
                                        else replace man (mss ++ [m]) ms
 
-getManager :: InstanceState -> ComponentType -> a
-getManager is typ = case lookup typ $ managers is of
+getManager :: ComponentType -> InstanceState -> a
+getManager typ is = case lookup typ $ managers is of
                         (Just (ComponentManager a)) -> unsafeCoerce a
                         _ -> error "here3"

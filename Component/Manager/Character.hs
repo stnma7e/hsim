@@ -1,7 +1,6 @@
 module Component.Manager.Character
 ( CharacterManager(..)
 , CharacterComponent(..)
-, characterManager
 
 , Faction(..)
 , SpellType(..)
@@ -11,10 +10,14 @@ module Component.Manager.Character
 
 , attackObject
 , HitLocation(..)
+, AttackResult(..)
 
 , getCharacter
 , getCharDamage 
 , isCharacter
+
+-- Testing
+, attackComponent
 ) where
 
 import Control.Monad.Trans.State
@@ -22,17 +25,11 @@ import Text.JSON
 import System.Random
 import Data.Maybe
 import Control.Monad
-import Unsafe.Coerce
 import qualified Data.Map as Map
 
 import Component
 import Common
 
-characterManager :: InstanceState -> CharacterManager
-characterManager is = case lookup Character $ managers is of
-                          (Just (ComponentManager a)) -> unsafeCoerce a
-                          _ -> error "here3"
- 
 data HitLocation = DontHit
                  | Head | Torso | Legs
                    deriving (Show, Read, Eq)
@@ -97,7 +94,7 @@ instance ComponentCreator CharacterManager where
         evts <- getEventsFromInstance ["attack", "death"]
         updateCharacterManagerFromEvents evts
 
-        (CharacterManager ids) <- liftM characterManager get
+        (CharacterManager ids) <- liftM (getManager Character) get
         -- the deleted components from earlier events won't be counted again
         -- because we already did our event update for last frame
         let deadIds = Map.foldrWithKey (\goid comp acc -> if getCharHealth comp <= 0 then goid:acc else acc) []  ids
@@ -110,7 +107,7 @@ updateCharacterManagerFromEvents (evt:evts) = do
     case evt of
         (DeathEvent goid) -> do
             s <- get
-            let (CharacterManager ids) = characterManager s
+            let (CharacterManager ids) = getManager Character s
                 cm = CharacterManager $ Map.delete goid ids
             put $ putManager Character (ComponentManager cm) s
 
@@ -119,13 +116,13 @@ updateCharacterManagerFromEvents (evt:evts) = do
 
     updateCharacterManagerFromEvents evts
 
-data AttackType = Hit Int | Miss
-                  deriving (Show, Read, Eq)
+data AttackResult = Hit Int | Miss
+                    deriving (Show, Read, Eq)
 
-attackObject :: GOiD -> GOiD -> HitLocation -> Instance AttackType
+attackObject :: GOiD -> GOiD -> HitLocation -> Instance AttackResult
 attackObject id1 id2 hitLoc = do
     s <- get
-    let (CharacterManager ids) = characterManager s
+    let (CharacterManager ids) = getManager Character s
         char1 = Map.lookup id1 ids
         char2 = Map.lookup id2 ids
     if isNothing char1 || isNothing char2 || hitLoc == DontHit
@@ -162,7 +159,7 @@ replaceReputation f@(fac, _) (f'@(fac', _):fx) rs = if fac' == fac
                                             else replaceReputation f fx (rs ++ [f'])
 
 type Health = Int
-attackComponent :: (Health, Health) -> DamageType -> HitLocation -> StdGen -> (AttackType, Health, StdGen)
+attackComponent :: (Health, Health) -> DamageType -> HitLocation -> StdGen -> (AttackResult, Health, StdGen)
 attackComponent (health1, health2) (DamageType damage1 _) hitLoc rnd =
     let (rndNum, newGen) = randomR (1, 100) rnd :: (Int, StdGen)
         damageDealt1 = truncate $ case hitLoc of

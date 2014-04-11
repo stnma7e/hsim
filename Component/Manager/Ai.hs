@@ -1,14 +1,12 @@
 module Component.Manager.Ai
 ( AiManager(..)
 , AiComponent(..)
-, aiManager
 ) where
 
 import Control.Monad.Trans.State
 import Text.JSON
 import Text.Show.Functions ()
 import Control.Monad
-import Unsafe.Coerce
 import qualified Data.Map as Map
 import qualified Numeric.Matrix as Mat
 
@@ -17,11 +15,6 @@ import Math
 import Component
 import Component.Manager.Transform
 import Component.Manager.Character
-
-aiManager :: InstanceState -> AiManager
-aiManager is = case lookup Ai $ managers is of
-                   (Just (ComponentManager a)) -> unsafeCoerce a
-                   _ -> error "here3"
 
 data AiComponent = Enemy | Passive | Follow | Guard
                    deriving (Show, Read)
@@ -56,7 +49,7 @@ instance ComponentCreator AiManager where
         let processedEvents = flip map evts $ \(DeathEvent dead) -> do
             -- deleting their ai functions so they won't get computed each frame
             s <- get
-            let (AiManager comps) = aiManager s
+            let (AiManager comps) = getManager Ai s
             put $ putManager Ai (ComponentManager . AiManager $ Map.delete dead comps) s
             return ()
 
@@ -65,7 +58,7 @@ instance ComponentCreator AiManager where
         foldr ((=<<) . const) (return ()) processedEvents
 
         s <- get
-        let (AiManager comps) = aiManager s
+        let (AiManager comps) = getManager Ai s
         Map.foldrWithKey (\goid comp acc -> acc >> comp goid) (return ()) comps
         return Nothing
 
@@ -79,8 +72,8 @@ getComputerFromJSON computerType = case computerType of
 attackClose :: GOiD -> Int -> (CharacterComponent -> CharacterComponent -> HitLocation) -> Instance ()
 attackClose thisId radiusToLook iShouldAttack = do
     s <- get
-    let tm = transformManager s
-        cm = characterManager s
+    let tm = getManager Transform s
+        cm = getManager Character s
         thisLoc = getObjectLoc thisId tm
         placesToLook = zipWith (\(i1, i1') (i2, i2') -> (i1 + i2, i1' + i2')) (repeat thisLoc) $
             map (\(i1, i2) -> (i1 * radiusToLook, i2 * radiusToLook))
@@ -117,7 +110,7 @@ followComputer :: AiComputer
 followComputer thisId = do
     s <- get
     let player = (getInstancePlayer s)
-        tm = transformManager s
+        tm = getManager Transform s
     unless (getObjectLoc player tm == getObjectLoc thisId tm) $ do
         let playerLoc   = getObjectMatrix player tm `Mat.times` Mat.fromList [[0],[0],[0],[1]]
             computerMatrix = getObjectMatrix thisId tm
