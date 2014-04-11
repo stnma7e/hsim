@@ -22,7 +22,7 @@ main :: IO ()
 main = do
     let is = flip execState emptyInstanceState $ do
             let objJSON = buildObjectJSON (TransformComponent Open (Mat.unit 4)) 
-                                          (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 5 [Melee, Frost]))
+                                          (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 10 [Melee, Frost]))
                                           Guard
             playerId <- createObject objJSON
 

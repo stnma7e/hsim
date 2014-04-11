@@ -8,33 +8,42 @@ module Instance
 , pushEvent
 ) where 
 
-import Control.Monad.Trans.State       (state, get, put, execState)
+import Control.Monad.Trans.State
 import qualified Data.Map as Map
 import Text.JSON
 import Data.List
+import Control.Monad
 import System.Random
 
 import Event
 import Component
 
 emptyInstanceState :: InstanceState
-emptyInstanceState = InstanceState (-1) (TransformManager Map.empty Map.empty) (CharacterManager Map.empty) (AiManager Map.empty) (Map.empty, Map.empty) [0..100] (mkStdGen 0)
+emptyInstanceState = InstanceState { getInstancePlayer = -1
+                                   , getEvents         = (Map.empty, Map.empty)
+                                   , availiableIDS     = [0..100]
+                                   , randomNumGen      = mkStdGen 0
+                                   , managers          = [ (Transform, ComponentManager $ TransformManager Map.empty Map.empty)
+                                                         , (Character, ComponentManager $ CharacterManager Map.empty)
+                                                         , (Ai, ComponentManager $ AiManager Map.empty)
+                                                         ]
+                                   }
 
 update :: Instance (Map.Map String [Event], Map.Map String [Event])
 update = do
-    (InstanceState _ _ _ am _ _ _) <- get
+    am <- liftM aiManager get
     amErr <- Component.update am
     case amErr of
         (Just err) -> error $ "error when updating ai manager: " ++ err
         _  -> return ()
 
-    (InstanceState _ _ cm _ _ _ _) <- get
+    cm <- liftM characterManager get
     cmErr <- Component.update cm
     case cmErr of
         (Just err) -> error $ "error when updating character manager: " ++ err
         _  -> return ()
 
-    (InstanceState _ tm _ _ _ _ _) <- get
+    tm <- liftM transformManager get
     tmErr <- Component.update tm
     case tmErr of
         (Just err) -> error $ "error when updating transform manager: " ++ err
@@ -52,13 +61,16 @@ createObject objData = state $ \s ->
     in (goid, s' { availiableIDS = delete goid (availiableIDS s') } )
 
 createObjectSpecificID :: GOiD -> JSValue -> Instance ()
-createObjectSpecificID idToMake objData = state $ \s@(InstanceState _ tm cm am _ _ _) ->
-        let jsonObj = readJSON objData :: Result GameObjectJSON
+createObjectSpecificID idToMake objData = state $ \s ->
+        let tm = transformManager s
+            cm = characterManager s
+            am = aiManager s
+            jsonObj = readJSON objData :: Result GameObjectJSON
         in case jsonObj of
-            (Ok (GameObjectJSON jsonTm jsonCm jsonAm)) -> ((), s { transformManager = createObjectForManager idToMake jsonTm tm
-                                                                 , characterManager = createObjectForManager idToMake jsonCm cm
-                                                                 , aiManager        = createObjectForManager idToMake jsonAm am
-                                                                 })
+            (Ok (GameObjectJSON jsonTm jsonCm jsonAm)) -> let is1 = putManager Transform (ComponentManager $ createObjectForManager idToMake jsonTm tm) s
+                                                              is2 = putManager Character (ComponentManager $ createObjectForManager idToMake jsonCm cm) is1
+                                                              is3 = putManager Ai (ComponentManager $ createObjectForManager idToMake jsonAm am) is2
+                                                          in ((), is3)
             (Error err) -> error err
 
 createObjectForManager :: ComponentCreator a => GOiD -> JSValue -> a -> a

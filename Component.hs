@@ -1,3 +1,5 @@
+{-# LANGUAGE ExistentialQuantification #-}
+
 module Component where
 
 import Control.Monad.Trans.State
@@ -9,6 +11,7 @@ import qualified Numeric.Matrix as Mat
 import System.Random
 import Data.Maybe
 import Control.Applicative
+import Unsafe.Coerce
 
 import Common
 import Math
@@ -103,21 +106,51 @@ pushEvent evtToBeInserted = insertEvent evtToBeInserted $ case evtToBeInserted o
                  else ((), s { getEvents = (currentFrameEvents, newEventList) })
 
 class ComponentCreator a where
-	createComponent :: GOiD -> JSValue -> a -> Either String a
-	update :: a -> Instance (Maybe String)
+    createComponent :: GOiD -> JSValue -> a -> Either String a
+    update :: a -> Instance (Maybe String)
 
 type EventList = Map.Map String [Event]
+
+data ComponentManager = forall a . (ComponentCreator a, Show a) => ComponentManager a
+instance Show ComponentManager where
+    show (ComponentManager a) = show a
+
+data ComponentType = Transform
+                   | Character
+                   | Ai
+                     deriving (Show, Eq)
 
 type Instance = State InstanceState
 data InstanceState = InstanceState
     { getInstancePlayer :: GOiD
-    , transformManager  :: TransformManager
-    , characterManager  :: CharacterManager
-    , aiManager         :: AiManager
     , getEvents         :: (EventList, EventList)
     , availiableIDS     :: [GOiD]
     , randomNumGen      :: StdGen
+    , managers          :: [(ComponentType, ComponentManager)]
     } deriving Show
+
+putManager :: ComponentType -> ComponentManager -> InstanceState -> InstanceState
+putManager typ manager is = is { managers = replace (typ, manager) [] (managers is) }
+    where replace :: (ComponentType, ComponentManager) -> [(ComponentType, ComponentManager)] -> [(ComponentType, ComponentManager)] -> [(ComponentType, ComponentManager)]
+          replace man ms [] = ms ++ [man]
+          replace man mss (m:ms) = if fst m == fst man
+                                       then mss ++ man:ms
+                                       else replace man (mss ++ [m]) ms
+
+transformManager :: InstanceState -> TransformManager
+transformManager is = case lookup Transform $ managers is of
+                          (Just (ComponentManager a)) -> unsafeCoerce a
+                          _ -> error "here3"
+
+characterManager :: InstanceState -> CharacterManager
+characterManager is = case lookup Character $ managers is of
+                          (Just (ComponentManager a)) -> unsafeCoerce a
+                          _ -> error "here3"
+
+aiManager :: InstanceState -> AiManager
+aiManager is = case lookup Ai $ managers is of
+                   (Just (ComponentManager a)) -> unsafeCoerce a
+                   _ -> error "here3"
 
 -------------------------------------
 -- Managers --
@@ -172,11 +205,11 @@ instance ComponentCreator TransformManager where
 
     update _ = do
         evts <- getEventsFromInstance ["characterMoved", "death"]
-        updateFromEvents evts
+        updateTransformManagerFromEvents evts
 
-updateFromEvents :: [Event] -> Instance (Maybe String)
-updateFromEvents [] = return Nothing
-updateFromEvents (evt:evts) = do
+updateTransformManagerFromEvents :: [Event] -> Instance (Maybe String)
+updateTransformManagerFromEvents [] = return Nothing
+updateTransformManagerFromEvents (evt:evts) = do
     err <- case evt of
         (CharacterMovedEvent goid loc) -> do
             s <- get
@@ -192,11 +225,13 @@ updateFromEvents (evt:evts) = do
         (DeathEvent goid) -> do
             s <- get
             let tm = transformManager s
-            put $ s { transformManager = tm { getMatrices = Map.delete goid (getMatrices tm)
-                                            , getGrid     = updateGrid goid (getObjectLoc goid tm) Delete (getGrid tm) } }
+            let tm' = tm { getMatrices = Map.delete goid (getMatrices tm)
+                         , getGrid     = updateGrid goid (getObjectLoc goid tm) Delete (getGrid tm)
+                         }
+            put $ putManager Transform (ComponentManager tm') s
             return Nothing
         _ -> return Nothing
-    err' <- updateFromEvents evts
+    err' <- updateTransformManagerFromEvents evts
     return $ (++) <$> err <*> err'
 
 getGridXY :: Mat.Matrix Float -> (Int, Int)
@@ -221,8 +256,9 @@ getObjectLoc goid (TransformManager mats _) = let (Just comp) = Map.lookup goid 
 
 moveObject :: GOiD -> Mat.Matrix Float -> Instance (Maybe String)
 moveObject  goid newLoc = do
-    s@(InstanceState _ tm@(TransformManager mats grid) _ _ _ _ _) <- get
-    let obj = Map.lookup goid mats
+    s <- get
+    let tm@(TransformManager mats grid) = transformManager s
+        obj = Map.lookup goid mats
     maybe (return . Just $ "there is no object with GOiD, " ++ show goid ++ ", that is able to be moved")
           (const $ let tc  = Map.lookup goid mats
                        loc = getGridXY newLoc
@@ -237,7 +273,10 @@ moveObject  goid newLoc = do
                                        gridWithOldDeleted = updateGrid goid oldLoc Delete grid
                                        grid' = updateGrid goid loc Insert gridWithOldDeleted
                                    in do
-                                       put $ s { transformManager = TransformManager (Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats) grid' }
+                                       let tm' = (transformManager s) { getMatrices = Map.update (\_ -> Just $ TransformComponent typ newLoc) goid mats
+                                                                      , getGrid     = grid'
+                                                                      }
+                                       put $ putManager Transform (ComponentManager tm') s
                                        return Nothing
                    in maybe (return . Just $ "no matrix for component when moving; GOiD: " ++ show goid)
                             continueWithMovement
@@ -358,7 +397,8 @@ updateCharacterManagerFromEvents (evt:evts) = do
         (DeathEvent goid) -> do
             s <- get
             let (CharacterManager ids) = characterManager s
-            put $ s { characterManager = CharacterManager $ Map.delete goid ids }
+                cm = CharacterManager $ Map.delete goid ids
+            put $ putManager Character (ComponentManager cm) s
 
             return ()
         _ -> return ()
@@ -397,9 +437,8 @@ attackObject id1 id2 hitLoc = do
 
                 pushEvent (AttackEvent (id1, id2) (getCharHealth char2' - getCharHealth2'))
                 s' <- get
-                put $ s' { characterManager = CharacterManager ids'
-                         , randomNumGen = newGen
-                         }
+                put $ (putManager Character (ComponentManager $ CharacterManager ids') s') { randomNumGen = newGen
+                                                                                           }
                 return hitMiss
 
 replaceReputation :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
@@ -468,7 +507,7 @@ instance ComponentCreator AiManager where
             -- deleting their ai functions so they won't get computed each frame
             s <- get
             let (AiManager comps) = aiManager s
-            put $ s { aiManager = AiManager $ Map.delete dead comps}
+            put $ putManager Ai (ComponentManager . AiManager $ Map.delete dead comps) s
             return ()
 
         -- processedEvents must come first otherwise a 'dead' component would compute
