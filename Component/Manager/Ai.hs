@@ -69,7 +69,7 @@ getComputerFromJSON computerType = case computerType of
     Guard     -> guardComputer
     Passive   -> \_ -> return ()
 
-attackClose :: GOiD -> Int -> (CharacterComponent -> CharacterComponent -> HitLocation) -> Instance ()
+attackClose :: GOiD -> Int -> (CharacterComponent -> CharacterComponent -> Maybe HitLocation) -> Instance ()
 attackClose thisId radiusToLook iShouldAttack = do
     s <- get
     let tm = getManager Transform s
@@ -88,23 +88,25 @@ attackClose thisId radiusToLook iShouldAttack = do
                 (Just thisChar) = getCharacter cm thisId
             in case char2 of
                 Nothing       -> return ()
-                (Just char2') -> attackObject thisId idOfNearby (iShouldAttack thisChar char2')
-                                 >> return ()
+                (Just char2') -> maybe (return ())
+                                       (\hitLoc -> attackObject thisId idOfNearby hitLoc
+                                                >> return ())
+                                       (iShouldAttack thisChar char2')
 
 guardComputer :: AiComputer
 guardComputer thisId =
     attackClose thisId 3 $ \thisChar char2 ->
         if getCharFaction char2 /= getCharFaction thisChar
-        then Torso
-        else DontHit
+        then Just Torso
+        else Nothing
 
 enemyComputer :: AiComputer
 enemyComputer thisId =
     -- lets look in all the spaces surrounding our location
     attackClose thisId 1 $ \thisChar char2 ->
         if getCharHealth char2 <= getCharHealth thisChar
-        then Torso
-        else DontHit
+        then Just Torso
+        else Nothing
 
 followComputer :: AiComputer
 followComputer thisId = do

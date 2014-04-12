@@ -49,15 +49,12 @@ data Event = AttackEvent (GOiD, GOiD) Int
            | DeathEvent GOiD
            | KillEvent GOiD GOiD
            | CharacterMovedEvent GOiD [Float]
-           | RequestCharacterCreationEvent String [Float]
              deriving (Show, Read, Eq)
 
 instance JSON Event where
     readJSON = undefined
     showJSON (AttackEvent (char1, char2) damage) =
         buildEventJSON eventTypeAttack [("Char1", showJSON char1), ("Char2", showJSON char2), ("Damage", showJSON damage)]
-    showJSON (RequestCharacterCreationEvent charType loc) =
-        buildEventJSON eventTypeRequestCharacterCreation [("Type", showJSON charType), ("Location", showJSON loc)]
     showJSON (CharacterMovedEvent char loc) =
         buildEventJSON eventTypeCharacterMoved [("CharID", showJSON char), ("NewLocation", showJSON loc)]
     showJSON (DeathEvent char) =
@@ -107,7 +104,7 @@ class ComponentCreator a where
 
 type EventList = Map.Map String [Event]
 
-data ComponentManager = forall a . (ComponentCreator a, Show a) => ComponentManager a
+data ComponentManager = forall a. (ComponentCreator a, Show a) => ComponentManager a
 instance Show ComponentManager where
     show (ComponentManager a) = show a
 

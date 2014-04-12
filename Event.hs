@@ -28,12 +28,6 @@ instance JSONEvent Event where
                                            (Ok damage) = obj ! "Damage"
                                        in AttackEvent (char1,char2) damage
                 _ -> error "cannot read attack event from data"
-        | eventType == eventTypeRequestCharacterCreation =
-            case readJSON event of
-                (Ok (JSObject obj)) -> let (Ok goid) = obj ! "Type"
-                                           (Ok loc)  = obj ! "Location"
-                                       in RequestCharacterCreationEvent goid loc
-                _ -> error "cannot read attack event from data"
         | eventType == eventTypeCharacterMoved =
             case readJSON event of
                 (Ok (JSObject obj)) -> let (Ok goid) = obj ! "CharID"

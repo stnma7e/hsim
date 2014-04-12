@@ -30,8 +30,7 @@ import qualified Data.Map as Map
 import Component
 import Common
 
-data HitLocation = DontHit
-                 | Head | Torso | Legs
+data HitLocation = Head | Torso | Legs
                    deriving (Show, Read, Eq)
 
 data Faction = Betuol | Dunteg | Blitzal
@@ -125,7 +124,7 @@ attackObject id1 id2 hitLoc = do
     let (CharacterManager ids) = getManager Character s
         char1 = Map.lookup id1 ids
         char2 = Map.lookup id2 ids
-    if isNothing char1 || isNothing char2 || hitLoc == DontHit
+    if isNothing char1 || isNothing char2
     then return Miss
     else let (Just char1') = char1
              (Just char2') = char2
@@ -142,15 +141,19 @@ attackObject id1 id2 hitLoc = do
                                                     }) id2 ids
          in if getCharHealth char2' <= 0
             then return Miss
-            else do
-                when (getCharHealth2' <= 0) $
-                    pushEvent (KillEvent id1 id2)
+            else do when (getCharHealth2' <= 0) $
+                        pushEvent (KillEvent id1 id2)
 
-                pushEvent (AttackEvent (id1, id2) (getCharHealth char2' - getCharHealth2'))
-                s' <- get
-                put $ (putManager Character (ComponentManager $ CharacterManager ids') s') { randomNumGen = newGen
-                                                                                           }
-                return hitMiss
+                    pushEvent (AttackEvent (id1, id2) (getCharHealth char2' - getCharHealth2'))
+                    s' <- liftM (updateInstance ids') get
+                    put $ s' { randomNumGen = newGen
+                             }
+                    return hitMiss
+    where updateInstance :: Map.Map GOiD CharacterComponent
+                         -> InstanceState
+                         -> InstanceState
+          updateInstance ids' = putManager Character
+                              $ ComponentManager (CharacterManager ids')
 
 replaceReputation :: Reputation -> [Reputation] -> [Reputation] -> [Reputation]
 replaceReputation _ [] rs = rs
@@ -166,7 +169,6 @@ attackComponent (health1, health2) (DamageType damage1 _) hitLoc rnd =
             Head    -> if rndNum > 10 then 0 else damage1 * 2
             Torso   -> if rndNum > 90 then 0 else damage1
             Legs    -> if rndNum > 70 then 0 else damage1 * 1.5
-            DontHit -> 0
         hitMiss = if damageDealt1 > 0
                   then Hit damageDealt1
                   else Miss
