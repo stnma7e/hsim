@@ -8,7 +8,8 @@ import Text.JSON
 import Text.Show.Functions ()
 import Control.Monad
 import qualified Data.Map as Map
-import qualified Numeric.Matrix as Mat
+import qualified Numeric.Container as Mat
+import qualified Data.Packed.Vector as Vec
 
 import Common
 import Math
@@ -47,11 +48,11 @@ instance ComponentCreator AiManager where
         -- and store these computation thunks in a list
         -- the list will get processed later on with the list of ai computations
         let processedEvents = flip map evts $ \(DeathEvent dead) -> do
-            -- deleting their ai functions so they won't get computed each frame
-            s <- get
-            let (AiManager comps) = getManager Ai s
-            put $ putManager Ai (ComponentManager . AiManager $ Map.delete dead comps) s
-            return ()
+             -- deleting their ai functions so they won't get computed each frame
+             s <- get
+             let (AiManager comps) = getManager Ai s
+             put $ putManager Ai (ComponentManager . AiManager $ Map.delete dead comps) s
+             return ()
 
         -- processedEvents must come first otherwise a 'dead' component would compute
         -- its ai unnecessarily
@@ -114,11 +115,11 @@ followComputer thisId = do
     let player = (getInstancePlayer s)
         tm = getManager Transform s
     unless (getObjectLoc player tm == getObjectLoc thisId tm) $ do
-        let playerLoc   = getObjectMatrix player tm `Mat.times` Mat.fromList [[0],[0],[0],[1]]
+        let playerLoc      = getObjectMatrix player tm Mat.<> Vec.fromList [0,0,0,1]
             computerMatrix = getObjectMatrix thisId tm
-            computerLoc = computerMatrix `Mat.times` Mat.fromList [[0],[0],[0],[1]]
-            diffVector  = playerLoc `Mat.minus` computerLoc
-            translationMat = buildTranslationMatrix (4,4) (concat $ Mat.toList diffVector) `Mat.times` computerMatrix
+            computerLoc    = computerMatrix Mat.<> Vec.fromList [0,0,0,1]
+            diffVector     = playerLoc `Mat.sub` computerLoc
+            translationMat = buildTranslationMatrix diffVector Mat.<> computerMatrix
         err <- moveObject thisId translationMat
         case err of
             (Just err') -> error err'

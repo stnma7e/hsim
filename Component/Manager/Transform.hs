@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 module Component.Manager.Transform
 ( TransformManager(..)
 , TransformComponent(..)
@@ -21,7 +25,8 @@ import Text.JSON
 import Control.Monad
 import Control.Applicative
 import qualified Data.Map as Map
-import qualified Numeric.Matrix as Mat
+import qualified Data.Packed.Matrix as Mat
+import qualified Numeric.Container as Mat
 
 import Component
 import Common
@@ -32,7 +37,9 @@ data ObjectOccupancy = Blocked | Open
 data TransformComponent = TransformComponent
     { getObjType :: ObjectOccupancy
     , getMatrix  :: Mat.Matrix Float
-    } deriving (Show, Eq)
+    }
+deriving instance Eq (Mat.Matrix Float) => Eq TransformComponent
+deriving instance Show (Mat.Matrix Float) => Show TransformComponent
 
 type ComponentMap = Map.Map GOiD TransformComponent
 
@@ -51,13 +58,7 @@ instance JSON TransformComponent where
     readJSON (JSObject obj) = do
         objType <- obj ! "ObjType" :: Result String
         mat     <- obj ! "Mat"     :: Result String
-        let mats  = map read $ words mat
-            -- split the joined list into 4 rows for the matrix
-        let (mats1, matsx1) = splitAt 4 mats
-        let (mats2, matsx2) = splitAt 4 matsx1
-        let (mats3, matsx3) = splitAt 4 matsx2
-        let mats' = [mats1, mats2, mats3, matsx3]
-        return $ TransformComponent (read objType) (Mat.fromList mats')
+        return $ TransformComponent (read objType) (read mat)
     readJSON _ = mzero
 
 instance ComponentCreator TransformManager where
@@ -86,8 +87,8 @@ updateTransformManagerFromEvents (evt:evts) = do
                     -- if we don't already have any information for this object, then make a new one and update it
                     -- will need to poll the server for data on this object since we don't have it yet
                     -- type information, etc.
-                    Nothing -> return $ Mat.unit 4
-            moveObject goid (mat' `Mat.times` Mat.fromList [loc])
+                    Nothing -> return $ Mat.ident 4
+            moveObject goid (mat' Mat.<> Mat.fromLists [loc])
         (DeathEvent goid) -> do
             s <- get
             let tm = getManager Transform s
@@ -101,7 +102,7 @@ updateTransformManagerFromEvents (evt:evts) = do
     return $ (++) <$> err <*> err'
 
 getGridXY :: Mat.Matrix Float -> (Int, Int)
-getGridXY m = let x:y:_ = Mat.toList $ m `Mat.times` Mat.fromList [[0],[0],[0],[1]]
+getGridXY m = let x:y:_ = Mat.toLists $ m Mat.<> Mat.fromLists [[0],[0],[0],[1]]
               in (truncate (head x), truncate (head y))
 
 data UpdateType = Insert | Delete

@@ -4,7 +4,8 @@ import Test.Hspec
 import Test.QuickCheck
 import System.Random
 import Control.Monad.Trans.State
-import qualified Numeric.Matrix as Mat
+import qualified Numeric.Container as Mat
+import qualified Data.Packed.Vector as Vec
 import qualified Data.Map as Map
 import Text.JSON
 
@@ -26,7 +27,7 @@ charComponent = CharacterComponent 10 10 Betuol [(Betuol, 0)] EmptyEquipment
 
 startingInstance :: InstanceState
 startingInstance = flip execState emptyInstanceState $ do
-    playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.unit 4))
+    playerId <- createObject $ buildObjectJSON (TransformComponent Open (Mat.ident 4))
                                                charComponent
                                                Enemy
     s <- get
@@ -43,12 +44,12 @@ transformManagerSpec ::  Spec
 transformManagerSpec = describe "TransformManager" $ do
     context "getGridXY" $ do
         it "returns correct (x, y) component location from matrix" $ do
-            let xy = getGridXY (buildTranslationMatrix (4,4) [1,0,0])
+            let xy = getGridXY (buildTranslationMatrix (4,4) (Vec.fromList [1,0,0,1]))
             xy `shouldBe` (1, 0)
 
     context "checkBlocked" $ do
         it "returns Blocked when a blocked component is present" $ do
-            let mat = buildTranslationMatrix (4,4) [3,92,4]
+            let mat = buildTranslationMatrix (4,4) (Vec.fromList  [3,92,4,1])
             let (obj, s) = flip runState startingInstance $ do
                 createObject $ buildObjectJSON (TransformComponent Blocked mat) charComponent Passive
             let isBlocked = obj `elem` checkCollision (getGridXY mat) (getManager Transform s)
@@ -62,13 +63,12 @@ transformManagerSpec = describe "TransformManager" $ do
     context "moveObject" $ do
         it "can increase x location by one" $ do
             let s = startingInstance
-            let ((err, maybePlayerLocation), _) = flip runState s $ do
-                err' <- moveObject (getInstancePlayer s) (buildTranslationMatrix (4,4) [1,0,0])
+            let ((err, playerLocation), _) = flip runState s $ do
+                err' <- moveObject (getInstancePlayer s) (buildTranslationMatrix (4,4) (Vec.fromList [1,0,0,1]))
                 s' <- get
-                let objs = getObjectsAt (1, 0) (getManager Transform s')
-                return (err', lookup (getInstancePlayer s') objs)
+                return $ (err', getObjectLoc (getInstancePlayer s) (getManager Transform s'))
             err `shouldBe` Nothing
-            maybePlayerLocation `shouldBe` Just (TransformComponent Open (buildTranslationMatrix (4,4) [1,0,0]))
+            playerLocation `shouldBe` (1,0)
 
 characterManagerSpec ::  Spec
 characterManagerSpec = describe "CharacterManager" $ do
