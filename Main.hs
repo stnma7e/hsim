@@ -1,7 +1,9 @@
 module Main where
 
 import Control.Monad.Trans.State
-import qualified Numeric.Matrix as Mat
+import qualified Data.Packed.Matrix as Mat
+import qualified Data.Packed.Vector as Vec
+import qualified Numeric.Container as Mat
 import qualified Data.Map as Map
 import Data.Maybe
 import Control.Monad
@@ -32,10 +34,9 @@ startingInstance = let objJSON = buildObjectJSON originLoc playerCharacter Guard
          _ <- update
          return playerId
 
-  where originLoc       = TransformComponent Open (Mat.unit 4)
+  where originLoc       = TransformComponent Open (Mat.ident 4)
         playerCharacter = CharacterComponent 10 10 Betuol [(Betuol, 0)]
                           $ CharacterEquipment $ DamageType 5 [Melee, Frost]
-
 
 main :: IO ()
 main = do
@@ -51,7 +52,7 @@ main = do
     
     _ <- loop is $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
     return ()
-  where originLoc       = TransformComponent Open (Mat.unit 4)
+  where originLoc       = TransformComponent Open (Mat.ident 4)
         playerCharacter = CharacterComponent 10 10 Betuol [(Betuol, 0)]
                           $ CharacterEquipment $ DamageType 5 [Melee, Frost]
 
@@ -134,9 +135,9 @@ loop is (scene1:sceneN) = do
                   "m"     -> let mat = getMatrix . fromJust . Map.lookup
                                        (getInstancePlayer is')
                                        $ getMatrices (getManager Transform is')
-                             in print [ mat `Mat.at` (1,4)
-                                      , mat `Mat.at` (2,4)
-                                      , mat `Mat.at` (3,4)
+                             in print [ mat Mat.@@> (0,3)
+                                      , mat Mat.@@> (1,3)
+                                      , mat Mat.@@> (2,3)
                                       ]
                   "a"     -> if length args < 1
                              then error "no return from attackObject"
@@ -155,7 +156,7 @@ handleInstanceResponse com@"create" args =
                (maybeRead $ args !! 0)
   where validId :: GOiD -> AiComponent -> Instance (Either String String)
         validId idToMake computerType = do
-            let json = buildObjectJSON (TransformComponent Open (Mat.unit 4 ))
+            let json = buildObjectJSON (TransformComponent Open (Mat.ident 4))
                                        (CharacterComponent 10 10 Betuol
                                            [(Betuol, 0)] EmptyEquipment)
                                        computerType
@@ -181,8 +182,8 @@ handleInstanceResponse com@"m" args =
   where player :: InstanceState -> GOiD
         player = getInstancePlayer
         mat :: InstanceState -> Mat.Matrix Float
-        mat s = getMatrix . fromJust $ Map.lookup (player s)
-                                                  (getMatrices $ getManager Transform s)
+        mat s = getMatrix . fromJust . Map.lookup (player s)
+                                     . getMatrices $ getManager Transform s
         directionToMove :: [Float]
         directionToMove = case args !! 0 of
             "n" -> [ 1,  0,  0]
@@ -191,8 +192,8 @@ handleInstanceResponse com@"m" args =
             "w" -> [ 0,  0, -1]
             _ -> []
         newLoc :: InstanceState -> Mat.Matrix Float
-        newLoc s = mat s `Mat.times` buildTranslationMatrix (4,4)
-                                         directionToMove
+        newLoc s = mat s Mat.<> buildTranslationMatrix
+                                    (Vec.fromList $ directionToMove ++ [1])
 
 -- attack command
 -- takes 1 argument of ID for player to attack

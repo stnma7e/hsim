@@ -3,7 +3,7 @@ module Script.Scene1
 ) where
 
 import Control.Monad.Trans.State (state, runState)
-import qualified Numeric.Matrix as Mat
+import qualified Data.Packed.Vector as Vec
 
 import Script
 import Component
@@ -22,10 +22,10 @@ instance Script Scene1 where
              putLine "Use the `m` command to move around."
 
              return . state $ \s -> flip runState s $ do
-                 _ <- createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0]))
+                 _ <- createObject $ buildObjectJSON (TransformComponent Blocked (buildTranslationMatrix (Vec.fromList [5,0,0,1])))
                                                      (CharacterComponent 10 10 Betuol [(Betuol, 0)] (CharacterEquipment $ DamageType 5 [Melee]))
                                                      Passive
-                 _ <- createObject $ buildObjectJSON (TransformComponent Blocked (Mat.unit 4 `Mat.times` buildTranslationMatrix (4,4) [5,0,0]))
+                 _ <- createObject $ buildObjectJSON (TransformComponent Blocked (buildTranslationMatrix (Vec.fromList [5,0,0,1])))
                                                      (CharacterComponent 10 10 Dunteg [(Dunteg, 0)] (CharacterEquipment $ DamageType 5 [Melee]))
                                                      Follow
                  return ()
