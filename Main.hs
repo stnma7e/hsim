@@ -36,12 +36,11 @@ startingInstance = let objJSON = buildObjectJSON originLoc playerCharacter Guard
 
   where originLoc       = TransformComponent Open (Mat.ident 4)
         playerCharacter = CharacterComponent 10 10 Betuol [(Betuol, 0)]
-                          $ CharacterEquipment $ DamageType 5 [Melee, Frost]
+                              $ CharacterEquipment $ DamageType 5 [Melee, Frost]
 
 main :: IO ()
 main = do
-    _ <- loop startingInstance
-         $ run Scene1 ++ repeat (return . state $ \s -> ((), s))
+    _ <- loop startingInstance $ run Scene1 ++ repeat (return (return ()))
     return ()
 
 loop :: InstanceState -> [IO (Instance ())] -> IO (Instance ())
@@ -56,6 +55,7 @@ loop is (scene1:sceneN) = do
     -- then parse commands and junk like normal
     args <- liftM words getLine
     if null args
+         -- no command was entered, so were just gonna replay that scene
     then loop scene' (return (return ()):sceneN)
     else do
         -- check which command has just been entered
@@ -78,8 +78,9 @@ loop is (scene1:sceneN) = do
 
         putStrLn ""
 
+        -- if the command is quit, then we do not want to re-run this frame
         if com == "quit"
-        then return . state $ const ((), is')
+        then return (return ())
         else if reRunThisFrame
              then loop is' (return (return ()):sceneN)
              else do -- let's get a list of the events from the last frame
@@ -89,18 +90,13 @@ loop is (scene1:sceneN) = do
                      printEvents framesEvents
 
                      loop is'' sceneN
-    where printEvents :: (EventList, EventList) -> IO ()
-          printEvents (eventsFromLastFrame, eventsForNextFrame)= do
-              putStrLn $ "events from last frame: " ++ show eventsFromLastFrame
-              putStrLn $ "events for next frame: "  ++ show eventsForNextFrame
-          -- the command was not valid and were not going to update the scene
+    where -- the command was not valid and were not going to update the scene
           -- this is a Either Left value
           reRunFrameBecauseThereWasAnError :: String -> IO (String, Bool)
           reRunFrameBecauseThereWasAnError com =
-              (const $ return (com, True)) =<< print com
+              const (return (com, True)) =<< print com
 
-          -- if the command is quit, then we do not want to re-run this frame
-          -- _ we are dealing with a valid command,
+          -- we are dealing with a valid command,
           -- but, we still do not want to re-run the frame
           -- this is a Either Right value
           goToNextFrameNoError :: InstanceState
@@ -108,7 +104,7 @@ loop is (scene1:sceneN) = do
                                -> [String]
                                -> IO (String, Bool)
           goToNextFrameNoError is' com args =
-              (const $ return (com, False)) =<< case com of
+              const (return (com, False)) =<< case com of
                   "show"  -> print is'
                   "look"  -> do
                       let tm = getManager Transform is'
@@ -131,6 +127,10 @@ loop is (scene1:sceneN) = do
                              then error "no return from attackObject"
                              else print $ head args
                   _ -> return ()
+          printEvents :: (EventList, EventList) -> IO ()
+          printEvents (eventsFromLastFrame, eventsForNextFrame)= do
+              putStrLn $ "events from last frame: " ++ show eventsFromLastFrame
+              putStrLn $ "events for next frame: "  ++ show eventsForNextFrame
 
 handleInstanceResponse :: String -> [String] -> Instance (Either String String)
 -- creates an object in the instance

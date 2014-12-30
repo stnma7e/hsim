@@ -1,0 +1,157 @@
+!	./Common.hs	8;"	v
+Ai	./Component.hs	115;"	d
+AiComponent	./Component/Manager/Ai.hs	20;"	t
+AiComputer	./Component/Manager/Ai.hs	23;"	t	file:
+AiManager	./Component/Manager/Ai.hs	25;"	d
+AiManager	./Component/Manager/Ai.hs	25;"	t
+Air	./Component/Manager/Character.hs	39;"	d
+AttackEvent	./Component.hs	48;"	d
+AttackResult	./Component/Manager/Character.hs	118;"	t
+Betuol	./Component/Manager/Character.hs	36;"	d
+Blitzal	./Component/Manager/Character.hs	36;"	d
+Blocked	./Component/Manager/Transform.hs	34;"	d
+Character	./Component.hs	114;"	d
+CharacterComponent	./Component/Manager/Character.hs	52;"	d
+CharacterComponent	./Component/Manager/Character.hs	52;"	t
+CharacterEquipment	./Component/Manager/Character.hs	47;"	t
+CharacterEquipment	./Component/Manager/Character.hs	48;"	d
+CharacterManager	./Component/Manager/Character.hs	60;"	d
+CharacterManager	./Component/Manager/Character.hs	60;"	t
+CharacterMovedEvent	./Component.hs	51;"	d
+ComponentCreator	./Component.hs	103;"	t
+ComponentManager	./Component.hs	109;"	d
+ComponentManager	./Component.hs	109;"	t
+ComponentMap	./Component/Manager/Transform.hs	44;"	t	file:
+ComponentType	./Component.hs	113;"	t
+DamageType	./Component/Manager/Character.hs	42;"	d
+DamageType	./Component/Manager/Character.hs	42;"	t
+DeathEvent	./Component.hs	49;"	d
+Delete	./Component/Manager/Transform.hs	108;"	d	file:
+Direction	./Component/Manager/Transform.hs	172;"	t	file:
+Dunteg	./Component/Manager/Character.hs	36;"	d
+Earth	./Component/Manager/Character.hs	39;"	d
+East	./Component/Manager/Transform.hs	172;"	d	file:
+EmptyEquipment	./Component/Manager/Character.hs	47;"	d
+Enemy	./Component/Manager/Ai.hs	20;"	d
+Event	./Component.hs	48;"	t
+EventDescriptor	./Event.hs	50;"	d
+EventDescriptor	./Event.hs	50;"	t
+EventList	./Component.hs	107;"	t
+Faction	./Component/Manager/Character.hs	36;"	t
+Fire	./Component/Manager/Character.hs	39;"	d
+Follow	./Component/Manager/Ai.hs	20;"	d
+Frost	./Component/Manager/Character.hs	39;"	d
+GOiD	./Component.hs	26;"	t
+GameObjectJSON	./Component.hs	28;"	d
+GameObjectJSON	./Component.hs	28;"	t
+Grid	./Component/Manager/Transform.hs	46;"	t	file:
+Guard	./Component/Manager/Ai.hs	20;"	d
+Head	./Component/Manager/Character.hs	33;"	d
+Health	./Component/Manager/Character.hs	164;"	t	file:
+Hit	./Component/Manager/Character.hs	118;"	d
+HitLocation	./Component/Manager/Character.hs	33;"	t
+Insert	./Component/Manager/Transform.hs	108;"	d	file:
+Instance	./Component.hs	118;"	t
+InstanceState	./Component.hs	119;"	d
+InstanceState	./Component.hs	119;"	t
+JSONEvent	./Event.hs	19;"	t
+KillEvent	./Component.hs	50;"	d
+Legs	./Component/Manager/Character.hs	33;"	d
+Melee	./Component/Manager/Character.hs	39;"	d
+Miss	./Component/Manager/Character.hs	118;"	d
+NEast	./Component/Manager/Transform.hs	174;"	d	file:
+NWest	./Component/Manager/Transform.hs	173;"	d	file:
+North	./Component/Manager/Transform.hs	172;"	d	file:
+ObjectOccupancy	./Component/Manager/Transform.hs	34;"	t
+Open	./Component/Manager/Transform.hs	34;"	d
+Passive	./Component/Manager/Ai.hs	20;"	d
+Reputation	./Component/Manager/Character.hs	45;"	t
+SEast	./Component/Manager/Transform.hs	174;"	d	file:
+SWest	./Component/Manager/Transform.hs	173;"	d	file:
+Scene1	./Script/Scene1.hs	16;"	d
+Scene1	./Script/Scene1.hs	16;"	t
+Script	./Script.hs	9;"	t
+South	./Component/Manager/Transform.hs	172;"	d	file:
+SpellType	./Component/Manager/Character.hs	39;"	t
+Torso	./Component/Manager/Character.hs	33;"	d
+Transform	./Component.hs	113;"	d
+TransformComponent	./Component/Manager/Transform.hs	37;"	d
+TransformComponent	./Component/Manager/Transform.hs	37;"	t
+TransformManager	./Component/Manager/Transform.hs	48;"	d
+TransformManager	./Component/Manager/Transform.hs	48;"	t
+UpdateType	./Component/Manager/Transform.hs	108;"	t	file:
+West	./Component/Manager/Transform.hs	172;"	d	file:
+ai	./Component.hs	31;"	v
+attackClose	./Component/Manager/Ai.hs	75;"	v	file:
+attackComponent	./Component/Manager/Character.hs	166;"	v
+attackObject	./Component/Manager/Character.hs	122;"	v
+availiableIDS	./Component.hs	122;"	v
+buildEventJSON	./Component.hs	71;"	v
+buildObjectJSON	./Component.hs	43;"	v
+buildTranslation	./Math.hs	13;"	v
+buildTranslationMatrix	./Math.hs	10;"	v
+character	./Component.hs	30;"	v
+checkBlocked	./Component/Manager/Transform.hs	156;"	v	file:
+checkCollision	./Component/Manager/Transform.hs	153;"	v
+computers	./Component/Manager/Ai.hs	26;"	v
+createComponent	./Component.hs	104;"	v
+createObject	./Instance.hs	61;"	v
+createObjectForManager	./Instance.hs	80;"	v	file:
+createObjectSpecificID	./Instance.hs	67;"	v
+emptyInstanceState	./Instance.hs	25;"	v
+enemyComputer	./Component/Manager/Ai.hs	115;"	v	file:
+eventData	./Event.hs	52;"	v
+eventDescriptionType	./Event.hs	51;"	v
+eventTypeAttack	./Component.hs	16;"	v
+eventTypeCharacterMoved	./Component.hs	22;"	v
+eventTypeDeath	./Component.hs	18;"	v
+eventTypeKill	./Component.hs	20;"	v
+eventTypeRequestCharacterCreation	./Component.hs	24;"	v
+followComputer	./Component/Manager/Ai.hs	123;"	v	file:
+getCharDamage	./Component/Manager/Character.hs	64;"	v
+getCharEquipment	./Component/Manager/Character.hs	57;"	v
+getCharFaction	./Component/Manager/Character.hs	55;"	v
+getCharHealth	./Component/Manager/Character.hs	53;"	v
+getCharMana	./Component/Manager/Character.hs	54;"	v
+getCharRep	./Component/Manager/Character.hs	56;"	v
+getCharacter	./Component/Manager/Character.hs	183;"	v
+getComputerFromJSON	./Component/Manager/Ai.hs	68;"	v	file:
+getEvent	./Event.hs	20;"	v
+getEvents	./Component.hs	121;"	v
+getEventsFromInstance	./Component.hs	74;"	v
+getExits	./Component/Manager/Transform.hs	178;"	v
+getGrid	./Component/Manager/Transform.hs	50;"	v
+getGridXY	./Component/Manager/Transform.hs	105;"	v
+getInstancePlayer	./Component.hs	120;"	v
+getManager	./Component.hs	144;"	v
+getMatrices	./Component/Manager/Transform.hs	49;"	v
+getMatrix	./Component/Manager/Transform.hs	39;"	v
+getObjType	./Component/Manager/Transform.hs	38;"	v
+getObjectLoc	./Component/Manager/Transform.hs	121;"	v
+getObjectMatrix	./Component/Manager/Transform.hs	167;"	v
+getObjectsAt	./Component/Manager/Transform.hs	160;"	v
+guardComputer	./Component/Manager/Ai.hs	108;"	v	file:
+handleInstanceResponse	Main.hs	138;"	v
+isCharacter	./Component/Manager/Character.hs	180;"	v
+jsonEventField	./Component.hs	68;"	v
+jsonTypeField	./Component.hs	66;"	v
+loop	Main.hs	48;"	v
+main	Main.hs	42;"	v
+managers	./Component.hs	124;"	v
+maybeRead	Main.hs	24;"	v
+moveObject	./Component/Manager/Transform.hs	125;"	v
+pushEvent	./Component.hs	87;"	v
+putDialouge	./Script.hs	17;"	v
+putLine	./Script.hs	14;"	v
+putManager	./Component.hs	131;"	v
+randomNumGen	./Component.hs	123;"	v
+replaceReputation	./Component/Manager/Character.hs	159;"	v	file:
+run	./Script.hs	11;"	v
+startingInstance	Main.hs	27;"	v
+transform	./Component.hs	29;"	v
+update	./Component.hs	105;"	v
+update	./Instance.hs	36;"	v
+updateCharacterManagerFromEvents	./Component/Manager/Character.hs	104;"	v	file:
+updateGrid	./Component/Manager/Transform.hs	111;"	v	file:
+updateTransformManagerFromEvents	./Component/Manager/Transform.hs	78;"	v	file:
+weapon	./Component/Manager/Character.hs	49;"	v

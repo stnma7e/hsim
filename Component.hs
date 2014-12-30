@@ -73,7 +73,9 @@ buildEventJSON typ event = showJSON $ makeObj [(jsonTypeField, showJSON typ), (j
 getEventsFromInstance :: [String] -> Instance [Event]
 getEventsFromInstance [] =  do
     s <- get
-    return . join . map snd $ Map.toList (fst $ getEvents s)
+    let thisLoopsEventList = Map.toList . fst $ getEvents s
+        eventDataList = join $ map snd thisLoopsEventList
+    return eventDataList
 getEventsFromInstance eventsToLookFor = do
         s <- get
         -- lets get a list of all the events we're going to look at
@@ -122,8 +124,13 @@ data InstanceState = InstanceState
     , managers          :: [(ComponentType, ComponentManager)]
     } deriving Show
 
-putManager :: ComponentType -> ComponentManager -> InstanceState -> InstanceState
-putManager typ manager is = is { managers = replace (typ, manager) [] (managers is) }
+putManager :: ComponentType
+           -> ComponentManager
+           -> InstanceState
+           -> InstanceState
+putManager typ manager is = is { managers = replace (typ, manager)
+                                                    []
+                                                    (managers is) }
     where replace :: (ComponentType, ComponentManager)
                   -> [(ComponentType, ComponentManager)]
                   -> [(ComponentType, ComponentManager)]
@@ -133,7 +140,7 @@ putManager typ manager is = is { managers = replace (typ, manager) [] (managers 
                                        then mss ++ man:ms
                                        else replace man (mss ++ [m]) ms
 
-getManager :: ComponentType -> InstanceState -> a
+getManager :: ComponentCreator m => ComponentType -> InstanceState -> m
 getManager typ is = case lookup typ $ managers is of
                         (Just (ComponentManager a)) -> unsafeCoerce a
-                        _ -> error "here3"
+                        _ -> error $ "no valid component manager, type: " ++ show typ

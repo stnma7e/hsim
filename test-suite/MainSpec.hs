@@ -35,21 +35,20 @@ startingInstance = flip execState emptyInstanceState $ do
     return playerId
 
 spec :: Spec
-spec = do
-    transformManagerSpec
-    characterManagerSpec
-    instanceSpec
+spec = do transformManagerSpec
+          characterManagerSpec
+          instanceSpec
 
 transformManagerSpec ::  Spec
 transformManagerSpec = describe "TransformManager" $ do
     context "getGridXY" $ do
         it "returns correct (x, y) component location from matrix" $ do
-            let xy = getGridXY (buildTranslationMatrix (4,4) (Vec.fromList [1,0,0,1]))
+            let xy = getGridXY (buildTranslationMatrix (Vec.fromList [1,0,0,1]))
             xy `shouldBe` (1, 0)
 
     context "checkBlocked" $ do
         it "returns Blocked when a blocked component is present" $ do
-            let mat = buildTranslationMatrix (4,4) (Vec.fromList  [3,92,4,1])
+            let mat = buildTranslationMatrix (Vec.fromList  [3,92,4,1])
             let (obj, s) = flip runState startingInstance $ do
                 createObject $ buildObjectJSON (TransformComponent Blocked mat) charComponent Passive
             let isBlocked = obj `elem` checkCollision (getGridXY mat) (getManager Transform s)
@@ -64,7 +63,7 @@ transformManagerSpec = describe "TransformManager" $ do
         it "can increase x location by one" $ do
             let s = startingInstance
             let ((err, playerLocation), _) = flip runState s $ do
-                err' <- moveObject (getInstancePlayer s) (buildTranslationMatrix (4,4) (Vec.fromList [1,0,0,1]))
+                err' <- moveObject (getInstancePlayer s) (buildTranslationMatrix (Vec.fromList [1,0,0,1]))
                 s' <- get
                 return $ (err', getObjectLoc (getInstancePlayer s) (getManager Transform s'))
             err `shouldBe` Nothing
