@@ -97,7 +97,7 @@ loop is (scene1:sceneN) = do
               const (return (com, True)) =<< print com
 
           -- we are dealing with a valid command,
-          -- but, we still do not want to re-run the frame
+         -- but, we still do not want to re-run the frame
           -- this is a Either Right value
           goToNextFrameNoError :: InstanceState
                                -> String
@@ -126,6 +126,7 @@ loop is (scene1:sceneN) = do
                   "a"     -> if length args < 1
                              then error "no return from attackObject"
                              else print $ head args
+                  {-"map"   -> -}
                   _ -> return ()
           printEvents :: (EventList, EventList) -> IO ()
           printEvents (eventsFromLastFrame, eventsForNextFrame)= do

@@ -14,12 +14,16 @@ module Component.Manager.Transform
 , getObjectsAt
 
 , getExits
+, Map(..)
+, getObjectsInRadius
 
 -- Testing
 , getGridXY
 , checkCollision
 ) where
 
+import Data.List
+import Data.Char
 import Control.Monad.Trans.State
 import Text.JSON
 import Control.Monad
@@ -40,16 +44,6 @@ data TransformComponent = TransformComponent
     }
 deriving instance Eq (Mat.Matrix Float) => Eq TransformComponent
 deriving instance Show (Mat.Matrix Float) => Show TransformComponent
-
-type ComponentMap = Map.Map GOiD TransformComponent
-
-type Grid = Map.Map (Int, Int) [GOiD]
-
-data TransformManager = TransformManager
-    { getMatrices :: ComponentMap
-    , getGrid     :: Grid
-    } deriving Show
-
 instance JSON TransformComponent where
     showJSON (TransformComponent objType mat) = showJSON $ makeObj [
           ("ObjType", showJSON $ show objType)
@@ -60,6 +54,15 @@ instance JSON TransformComponent where
         mat     <- obj ! "Mat"     :: Result String
         return $ TransformComponent (read objType) (read mat)
     readJSON _ = mzero
+
+type ComponentMap = Map.Map GOiD TransformComponent
+
+type Grid = Map.Map (Int, Int) [GOiD]
+
+data TransformManager = TransformManager
+    { getMatrices :: ComponentMap
+    , getGrid     :: Grid
+    } deriving Show
 
 instance ComponentCreator TransformManager where
     createComponent goid objData (TransformManager mats grid) =
@@ -163,6 +166,26 @@ getObjectsAt loc (TransformManager mats grid) =
         (Just ids') -> Map.toList $ Map.filterWithKey (\x _ -> x `elem` ids') mats
         _ -> []
 
+getObjectsInRadius :: Int -> (Int, Int) -> TransformManager -> [((Int, Int), [(GOiD, TransformComponent)])]
+getObjectsInRadius radiusToLook loc tm = let
+            placesToLook = zipWith (\(i1, i1') (i2, i2') -> (i1 + i2, i1' + i2'))
+                                   (repeat loc)
+                                   (relativeLocationsToLook radiusToLook [])
+        in zip placesToLook $ map (flip getObjectsAt tm) placesToLook
+    where -- find all locations adjacent in a given radius
+          relativeLocationsToLook :: Int -> [(Int, Int)] -> [(Int, Int)]
+          relativeLocationsToLook 0 locs     = locs
+          relativeLocationsToLook radiusToLook locs = locs
+              ++ (relativeLocationsToLook (radiusToLook - 1)
+                     $ map (\(i1, i2) -> (i1 * radiusToLook, i2 * radiusToLook))
+                         lookingDirections)
+          -- list of all grid spaces adjacent to our location
+          -- starting in center, going to left corner, then around clockwise
+          lookingDirections :: [(Int, Int)]
+          lookingDirections = [ (0, 0), (-1,1), ( 0, 1), (1, 1), (1,0)
+                    , (1,-1), (0,-1), (-1,-1), (-1,0)
+                    ]
+
 getObjectMatrix :: GOiD -> TransformManager -> Mat.Matrix Float
 getObjectMatrix goid (TransformManager mats _) = let mat = Map.lookup goid mats
                                                  in case mat of
@@ -174,10 +197,23 @@ data Direction = North | South | East | West
                | NEast | SEast
                  deriving (Show, Read)
 
-getExits :: (Int, Int) -> TransformManager -> [Direction]
+getExits :: (Int, Int) -> TransformManager -> ([Direction], [Direction])
 getExits (x,y) tm =
-    let n = [North | null $ checkCollision (x + 1, y) tm]
-        s = [South | null $ checkCollision (x - 1, y) tm]
-        e = [East  | null $ checkCollision (x, y + 1) tm]
-        w = [West  | null $ checkCollision (x, y - 1) tm]
-    in n++s++e++w
+    let n  = [North | null $ checkCollision (x + 1, y    ) tm]
+        s  = [South | null $ checkCollision (x - 1, y    ) tm]
+        e  = [East  | null $ checkCollision (x    , y + 1) tm]
+        w  = [West  | null $ checkCollision (x    , y - 1) tm]
+
+        ne = [NEast | null $ checkCollision (x + 1, y + 1) tm]
+        nw = [NWest | null $ checkCollision (x + 1, y - 1) tm]
+        se = [SEast | null $ checkCollision (x - 1, y + 1) tm]
+        sw = [SWest | null $ checkCollision (x - 1, y - 1) tm]
+    in (n++s++e++w, ne++nw++se++sw)
+
+data Map = Map [[Maybe TransformComponent]]
+instance Show Map where
+    show (Map chars) = tail $ foldr (\x acc -> acc ++ "\n" ++ (intersperse ' ' $ replicate 10 '|')) "" chars
+createMapFromInstance :: Int -> (Int, Int) -> TransformManager -> Map
+createMapFromInstance size startingLocation tm = let
+    objsPerSpace = getObjectsInRadius size startingLocation tm
+    in undefined

@@ -77,13 +77,8 @@ attackClose thisId radiusToLook iShouldAttack = do
     let tm = getManager Transform s
         cm = getManager Character s
         thisLoc = getObjectLoc thisId tm
---        relativeLocationsToLook = foldr (map (\(i1, i2) -> (i1 * radiusToLook, i2 * radiusToLook)))
---                                      lookingDirections
-        placesToLook = zipWith (\(i1, i1') (i2, i2') -> (i1 + i2, i1' + i2'))
-                               (repeat thisLoc)
-                               (relativeLocationsToLook radiusToLook [])
-        closeObjectsByLocation = join $ map (flip getObjectsAt tm) placesToLook
-        closeObjectIDs = map fst closeObjectsByLocation
+        closeObjectsByLocation = getObjectsInRadius radiusToLook thisLoc tm
+        closeObjectIDs = map (snd . fst) closeObjectsByLocation
         closeObjects = filter (/= thisId) $ filter (isCharacter cm) closeObjectIDs
 
     foldr (\is acc -> acc >>= const is) (return ()) $ flip map closeObjects $ \idOfNearby ->
@@ -98,19 +93,6 @@ attackClose thisId radiusToLook iShouldAttack = do
                                        (\hitLoc -> attackObject thisId idOfNearby hitLoc
                                                 >> return ())
                                        (iShouldAttack thisChar char2')
-    where -- list of all grid spaces adjacent to our location
-          -- starting in center, going to left corner, then around clockwise
-          lookingDirections :: [(Int, Int)]
-          lookingDirections = [ (0, 0), (-1,1), ( 0, 1), (1, 1), (1,0)
-                              , (1,-1), (0,-1), (-1,-1), (-1,0)
-                              ]
-          -- find all locations adjacent in a given radius
-          relativeLocationsToLook :: Int -> [(Int, Int)] -> [(Int, Int)]
-          relativeLocationsToLook 0 locs     = locs
-          relativeLocationsToLook radiusToLook locs = locs
-              ++ (relativeLocationsToLook (radiusToLook - 1)
-                     $ map (\(i1, i2) -> (i1 * radiusToLook, i2 * radiusToLook))
-                         lookingDirections)
 
 guardComputer :: AiComputer
 guardComputer thisId =

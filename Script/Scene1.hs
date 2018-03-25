@@ -25,7 +25,7 @@ instance Script Scene1 where
                  _ <- createObject $ buildObjectJSON
                       (TransformComponent Blocked
                           (buildTranslationMatrix (Vec.fromList [5,0,0,1])))
-                      (CharacterComponent 10 10 Dunteg [(Dunteg, 0)]
+                      (CharacterComponent 10 10 Betuol [(Betuol, 0)]
                           (CharacterEquipment $ DamageType 5 [Melee]))
                       Passive
                  _ <- createObject $ buildObjectJSON
